@@ -153,16 +153,26 @@ def create_pipeline(X, feature_cols):
         preprocessor = 'passthrough'
     
     # Create XGBoost model with optimized parameters
-    xgb_model = xgb.XGBClassifier(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        eval_metric='logloss',
-        use_label_encoder=False
-    )
+    # Note: use_label_encoder was removed in XGBoost 2.0+, so we don't include it
+    xgb_params = {
+        'n_estimators': 200,
+        'max_depth': 6,
+        'learning_rate': 0.05,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'random_state': 42,
+        'eval_metric': 'logloss'
+    }
+    # Only add use_label_encoder for XGBoost < 2.0
+    try:
+        import xgboost as xgb_check
+        xgb_version = xgb_check.__version__
+        if xgb_version.startswith('1.'):
+            xgb_params['use_label_encoder'] = False
+    except:
+        pass
+    
+    xgb_model = xgb.XGBClassifier(**xgb_params)
     
     # Create pipeline with SMOTE for imbalanced data
     pipeline = ImbPipeline([
