@@ -193,15 +193,37 @@ def risk_bucket(proba: float) -> str:
 
 
 def map_user_to_df(user: UserOptions) -> pd.DataFrame:
+    """Convert user input to DataFrame matching model's expected format."""
+    # Helper function to convert Yes/No strings to 0/1 integers
+    def yes_no_to_int(value):
+        if isinstance(value, str):
+            value_lower = value.lower().strip()
+            if value_lower in ['yes', '1', 'true']:
+                return 1
+            elif value_lower in ['no', '0', 'false', 'none', '']:
+                return 0
+            else:
+                # Try to convert directly if it's already a number string
+                try:
+                    return int(float(value))
+                except (ValueError, TypeError):
+                    return 0
+        elif isinstance(value, (int, float)):
+            return int(value)
+        else:
+            return 0
+    
     row = {
         'Age': int(user.Age),
         'Num of sexual partners': int(user.Num_of_sexual_partners),
         '1st sexual intercourse (age)': int(user.First_sex_age),
         'Num of pregnancies': int(user.Num_of_pregnancies),
         'Smokes (years)': float(user.Smokes_years),
-        'Hormonal contraceptives': str(user.Hormonal_contraceptives),
+        # Convert Yes/No strings to 0/1 integers for numeric columns
+        'Hormonal contraceptives': yes_no_to_int(user.Hormonal_contraceptives),
         'Hormonal contraceptives (years)': float(user.Hormonal_contraceptives_years),
-        'STDs:HIV': str(user.STDs_HIV),
+        'STDs:HIV': yes_no_to_int(user.STDs_HIV),
+        # Keep categorical columns as strings
         'Pain during intercourse': str(user.Pain_during_intercourse),
         'Vaginal discharge (type- watery, bloody or thick)': str(user.Vaginal_discharge_type),
         'Vaginal discharge(color-pink, pale or bloody)': str(user.Vaginal_discharge_color),
