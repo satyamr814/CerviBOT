@@ -2,6 +2,7 @@ services:
   - type: web
     name: cervibot
     env: python
+    rootDir: cerviBOT
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
     envVars:

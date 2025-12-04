@@ -88,10 +88,27 @@ def try_load_model(path: str):
 
 
 # Try load at startup
+logger.info(f"Current working directory: {os.getcwd()}")
+logger.info(f"App file location: {os.path.dirname(os.path.abspath(__file__))}")
+logger.info(f"Looking for model at: {MODEL_PATH}")
+logger.info(f"Model file exists: {os.path.exists(MODEL_PATH)}")
+
+# List backend directory contents for debugging
+backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
+if os.path.exists(backend_dir):
+    logger.info(f"Backend directory exists. Contents: {os.listdir(backend_dir)}")
+else:
+    logger.warning(f"Backend directory not found at: {backend_dir}")
+
 if os.path.exists(MODEL_PATH):
     model, model_path = try_load_model(MODEL_PATH)
 else:
-    logger.info(f"Model file not found at {MODEL_PATH}. Use /upload-model to upload one.")
+    logger.error(f"Model file not found at {MODEL_PATH}. Use /upload-model to upload one.")
+    # Try to find any .pkl files
+    for root, dirs, files in os.walk(os.getcwd()):
+        for file in files:
+            if file.endswith('.pkl'):
+                logger.info(f"Found .pkl file at: {os.path.join(root, file)}")
 
 
 # ---------- Pydantic input schema ----------
