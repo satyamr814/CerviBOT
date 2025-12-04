@@ -11,9 +11,35 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
+# ---------- Logging (setup early) ----------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("cervi_backend")
+
 # ---------- Configuration ----------
-# Use relative path from the app.py file location
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend", "xgb_cervical_pipeline.pkl")
+# Try multiple possible paths for the model file
+def find_model_path():
+    """Find the model file in various possible locations."""
+    possible_paths = [
+        # Relative to app.py location
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend", "xgb_cervical_pipeline.pkl"),
+        # Current working directory
+        os.path.join(os.getcwd(), "backend", "xgb_cervical_pipeline.pkl"),
+        # Absolute from current directory
+        "backend/xgb_cervical_pipeline.pkl",
+        # From parent directory
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "xgb_cervical_pipeline.pkl"),
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            logger.info(f"Found model at: {path}")
+            return path
+    
+    # Return the first path as default (will show error if not found)
+    logger.warning(f"Model not found in any of these paths: {possible_paths}")
+    return possible_paths[0]
+
+MODEL_PATH = find_model_path()
 
 FEATURE_ORDER = [
     'Age',
@@ -30,9 +56,6 @@ FEATURE_ORDER = [
     'Vaginal bleeding(time-b/w periods , After sex or after menopause)',
 ]
 
-# ---------- Logging ----------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("cervi_backend")
 
 # ---------- App & CORS ----------
 app = FastAPI(title="Cervical Cancer Risk Chatbot Backend")
