@@ -1,0 +1,141 @@
+<!-- frontend.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Option-based Cervical Risk Chatbot</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width:720px; margin:20px auto; }
+    .chat { border:1px solid #ddd; padding:12px; border-radius:8px; }
+    .bot { color: #111; margin:8px 0; }
+    .user { color: #006; margin:8px 0; text-align:right; }
+    .options { margin-top:10px; }
+    button.opt { margin:4px; padding:8px 12px; }
+  </style>
+</head>
+<body>
+  <h2>Cervical Health Chatbot (Option-based)</h2>
+  <div id="conversation" class="chat"></div>
+
+  <div id="question-area"></div>
+
+  <script>
+  // Keep a simple state object to collect answers
+  const state = {
+    Age: null,
+    Num_of_sexual_partners: null,
+    First_sex_age: null,
+    Num_of_pregnancies: null,
+    Smokes_years: 0,
+    Hormonal_contraceptives: 'No',
+    Hormonal_contraceptives_years: 0,
+    STDs_HIV: 'Negative',
+    Pain_during_intercourse: 'No',
+    Vaginal_discharge_type: 'None',
+    Vaginal_discharge_color: 'normal',
+    Vaginal_bleeding_timing: 'None'
+  };
+
+  const conversation = document.getElementById('conversation');
+  const qArea = document.getElementById('question-area');
+
+  function bot(msg){ conversation.innerHTML += `<div class="bot">${msg}</div>`; conversation.scrollTop = conversation.scrollHeight; }
+  function user(msg){ conversation.innerHTML += `<div class="user">${msg}</div>`; conversation.scrollTop = conversation.scrollHeight; }
+
+  // Sequence of questions (option-based)
+  const steps = [
+    { key: 'Age', text: 'What is your age?', type: 'number' },
+    { key: 'Num_of_sexual_partners', text: 'Number of sexual partners?', type:'number' },
+    { key: 'First_sex_age', text: 'Age at first sexual intercourse?', type:'number' },
+    { key: 'Num_of_pregnancies', text: 'Number of pregnancies?', type:'number' },
+    { key: 'Smokes_years', text: 'Years of smoking (0 if none)?', type:'number' },
+    { key: 'Hormonal_contraceptives', text: 'Using hormonal contraceptives?', type:'options', options:['Yes','No'] },
+    { key: 'Hormonal_contraceptives_years', text: 'If yes, how many years (0 if no)?', type:'number' },
+    { key: 'STDs_HIV', text: 'HIV status?', type:'options', options:['Negative','Positive','Unknown'] },
+    { key: 'Pain_during_intercourse', text: 'Pain during intercourse?', type:'options', options:['Yes','No'] },
+    { key: 'Vaginal_discharge_type', text: 'Vaginal discharge type?', type:'options', options:['None','watery','thick','bloody'] },
+    { key: 'Vaginal_discharge_color', text: 'Vaginal discharge color?', type:'options', options:['normal','pink','pale','bloody'] },
+    { key: 'Vaginal_bleeding_timing', text: 'Abnormal bleeding timing?', type:'options', options:['None','Between periods','After sex','After menopause'] },
+  ];
+
+  let stepIndex = 0;
+  function askNext(){
+    if(stepIndex >= steps.length){
+      // all answers collected — call predict
+      bot("Thanks — analyzing risk...");
+      sendToBackend();
+      qArea.innerHTML = '';
+      return;
+    }
+    const s = steps[stepIndex];
+    qArea.innerHTML = ''; // clear
+    bot(s.text);
+    if(s.type === 'options'){
+      const div = document.createElement('div');
+      div.className = 'options';
+      s.options.forEach(opt => {
+        const b = document.createElement('button');
+        b.className = 'opt';
+        b.innerText = opt;
+        b.onclick = () => { user(opt); state[s.key] = opt; stepIndex++; askNext(); };
+        div.appendChild(b);
+      });
+      qArea.appendChild(div);
+    } else if(s.type === 'number'){
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'num_input';
+      input.style.padding = '8px';
+      const btn = document.createElement('button');
+      btn.innerText = 'OK';
+      btn.onclick = () => {
+        const v = input.value;
+        user(v || '0');
+        state[s.key] = Number(v || 0);
+        stepIndex++; askNext();
+      };
+      qArea.appendChild(input);
+      qArea.appendChild(btn);
+    }
+  }
+
+  async function sendToBackend(){
+    try{
+      // map keys to backend schema naming
+      const payload = {
+        Age: state.Age,
+        Num_of_sexual_partners: state.Num_of_sexual_partners,
+        First_sex_age: state.First_sex_age,
+        Num_of_pregnancies: state.Num_of_pregnancies,
+        Smokes_years: state.Smokes_years,
+        Hormonal_contraceptives: state.Hormonal_contraceptives,
+        Hormonal_contraceptives_years: state.Hormonal_contraceptives_years,
+        STDs_HIV: state.STDs_HIV,
+        Pain_during_intercourse: state.Pain_during_intercourse,
+        Vaginal_discharge_type: state.Vaginal_discharge_type,
+        Vaginal_discharge_color: state.Vaginal_discharge_color,
+        Vaginal_bleeding_timing: state.Vaginal_bleeding_timing
+      };
+
+      const resp = await fetch('/predict', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      if(resp.ok){
+        bot(`Risk probability: ${(data.probability*100).toFixed(1)}% — ${data.risk_bucket}`);
+        bot(data.advice);
+      }else{
+        bot("Error: " + (data.detail || JSON.stringify(data)));
+      }
+    }catch(err){
+      bot("Network or server error: " + err.message);
+    }
+  }
+
+  // Start
+  askNext();
+  </script>
+</body>
+</html>
