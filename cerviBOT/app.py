@@ -19,25 +19,38 @@ logger = logging.getLogger("cervi_backend")
 # Try multiple possible paths for the model file
 def find_model_path():
     """Find the model file in various possible locations."""
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    cwd = os.getcwd()
+    
     possible_paths = [
-        # Relative to app.py location
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend", "xgb_cervical_pipeline.pkl"),
+        # Relative to app.py location (most common)
+        os.path.join(app_dir, "backend", "xgb_cervical_pipeline.pkl"),
         # Current working directory
-        os.path.join(os.getcwd(), "backend", "xgb_cervical_pipeline.pkl"),
-        # Absolute from current directory
+        os.path.join(cwd, "backend", "xgb_cervical_pipeline.pkl"),
+        # Simple relative path
         "backend/xgb_cervical_pipeline.pkl",
-        # From parent directory
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "xgb_cervical_pipeline.pkl"),
+        # If app.py is in a subdirectory
+        os.path.join(os.path.dirname(app_dir), "backend", "xgb_cervical_pipeline.pkl"),
+        # Absolute path from cwd
+        os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
+        # Also try directly in app_dir
+        os.path.join(app_dir, "xgb_cervical_pipeline.pkl"),
     ]
     
-    for path in possible_paths:
-        if os.path.exists(path):
-            logger.info(f"Found model at: {path}")
-            return path
+    logger.info(f"Searching for model file. App dir: {app_dir}, CWD: {cwd}")
     
-    # Return the first path as default (will show error if not found)
-    logger.warning(f"Model not found in any of these paths: {possible_paths}")
-    return possible_paths[0]
+    for path in possible_paths:
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path) and os.path.isfile(abs_path):
+            logger.info(f"Found model at: {abs_path}")
+            return abs_path
+        else:
+            logger.debug(f"Checked (not found): {abs_path}")
+    
+    # Log warning with all checked paths
+    checked_paths = [os.path.abspath(p) for p in possible_paths]
+    logger.warning(f"Model not found. Checked paths: {checked_paths}")
+    return None  # Return None instead of a non-existent path
 
 MODEL_PATH = find_model_path()
 
@@ -56,16 +69,6 @@ FEATURE_ORDER = [
     'Vaginal bleeding(time-b/w periods , After sex or after menopause)',
 ]
 
-
-# ---------- App & CORS ----------
-app = FastAPI(title="Cervical Cancer Risk Chatbot Backend")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # restrict in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ---------- Model holder ----------
 model = None
@@ -87,28 +90,48 @@ def try_load_model(path: str):
         return None, None
 
 
-# Try load at startup
-logger.info(f"Current working directory: {os.getcwd()}")
-logger.info(f"App file location: {os.path.dirname(os.path.abspath(__file__))}")
-logger.info(f"Looking for model at: {MODEL_PATH}")
-logger.info(f"Model file exists: {os.path.exists(MODEL_PATH)}")
-
-# List backend directory contents for debugging
-backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
-if os.path.exists(backend_dir):
-    logger.info(f"Backend directory exists. Contents: {os.listdir(backend_dir)}")
-else:
-    logger.warning(f"Backend directory not found at: {backend_dir}")
-
-if os.path.exists(MODEL_PATH):
+# Try load at module import time
+if MODEL_PATH and os.path.exists(MODEL_PATH):
     model, model_path = try_load_model(MODEL_PATH)
+    if model is None:
+        logger.warning("Model file exists but failed to load. Use /upload-model to upload a valid model.")
 else:
-    logger.error(f"Model file not found at {MODEL_PATH}. Use /upload-model to upload one.")
-    # Try to find any .pkl files
-    for root, dirs, files in os.walk(os.getcwd()):
-        for file in files:
-            if file.endswith('.pkl'):
-                logger.info(f"Found .pkl file at: {os.path.join(root, file)}")
+    logger.info(f"Model file not found. Use /upload-model to upload one or place it at: {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend', 'xgb_cervical_pipeline.pkl')}")
+
+
+# ---------- App & CORS ----------
+app = FastAPI(title="Cervical Cancer Risk Chatbot Backend")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------- Startup event ----------
+@app.on_event("startup")
+async def startup_event():
+    """Try to load the model on startup (fallback if not loaded at import time)."""
+    global model, model_path
+    if model is None:
+        logger.info("Model not loaded at import time. Attempting to load on startup...")
+        # Try to find and load the model again
+        found_path = find_model_path()
+        if found_path and os.path.exists(found_path):
+            logger.info(f"Startup: Attempting to load model from {found_path}")
+            loaded_model, loaded_path = try_load_model(found_path)
+            if loaded_model is not None:
+                model = loaded_model
+                model_path = loaded_path
+                logger.info("Startup: Model loaded successfully!")
+            else:
+                logger.warning("Startup: Model file found but failed to load.")
+        else:
+            logger.warning("Startup: Model file not found. Use /upload-model to upload one.")
+    else:
+        logger.info(f"Model already loaded from: {model_path}")
 
 
 # ---------- Pydantic input schema ----------
