@@ -79,14 +79,41 @@ def try_load_model(path: str):
     """Attempt to load a joblib model from path. Returns (model_obj, path) or (None, None) on failure."""
     try:
         logger.info(f"Attempting to load model from: {path}")
+        
+        # Check if imbalanced-learn is available (required for imblearn pipelines)
+        try:
+            import imblearn
+            logger.debug("imbalanced-learn is available")
+        except ImportError as ie:
+            logger.error(f"CRITICAL: imbalanced-learn is not installed! This is required for the model. Error: {ie}")
+            logger.error("Please install it: pip install imbalanced-learn")
+            return None, None
+        
         m = joblib.load(path)
+        
+        # Log model type for debugging
+        logger.info(f"Model loaded, type: {type(m).__name__}")
+        
         if not (hasattr(m, "predict") or hasattr(m, "predict_proba")):
             logger.warning("Loaded object does not have predict/predict_proba. Not using it.")
             return None, None
+        
+        # Verify model has required methods
+        if hasattr(m, "predict"):
+            logger.debug("Model has predict method")
+        if hasattr(m, "predict_proba"):
+            logger.debug("Model has predict_proba method")
+        
         logger.info("Model loaded successfully.")
         return m, path
+    except ImportError as ie:
+        logger.error(f"Import error while loading model: {ie}")
+        logger.error("This usually means a required dependency is missing.")
+        logger.error("Required packages: joblib, pandas, scikit-learn, xgboost, imbalanced-learn")
+        return None, None
     except Exception as e:
         logger.exception(f"Failed to load model at {path}: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         return None, None
 
 
@@ -127,7 +154,12 @@ async def startup_event():
                 model_path = loaded_path
                 logger.info("Startup: Model loaded successfully!")
             else:
-                logger.warning("Startup: Model file found but failed to load.")
+                logger.error("Startup: Model file found but failed to load.")
+                logger.error("Check the logs above for detailed error information.")
+                logger.error("Common issues:")
+                logger.error("  1. Missing dependency: pip install imbalanced-learn")
+                logger.error("  2. Model file corrupted or incompatible version")
+                logger.error("  3. XGBoost version mismatch")
         else:
             logger.warning("Startup: Model file not found. Use /upload-model to upload one.")
     else:
