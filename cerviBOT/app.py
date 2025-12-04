@@ -246,12 +246,25 @@ def predict(options: UserOptions) -> Dict[str, Any]:
 
     try:
         if hasattr(model, "predict_proba"):
-            proba = float(model.predict_proba(X)[0][1])
+            # Ensure X has the correct column order
+            X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
+            proba = float(model.predict_proba(X_ordered)[0][1])
             prob_source = "predict_proba"
         else:
-            pred = model.predict(X)[0]
+            X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
+            pred = model.predict(X_ordered)[0]
             proba = float(pred)
             prob_source = "predict (fallback)"
+    except AttributeError as e:
+        if "_name_to_fitted_passthrough" in str(e) or "ColumnTransformer" in str(e):
+            logger.error("scikit-learn version mismatch! Model was trained with a different version.")
+            logger.error("Please update scikit-learn: pip install 'scikit-learn>=1.3.0'")
+            raise HTTPException(
+                status_code=500, 
+                detail="Model compatibility error. Please ensure scikit-learn>=1.3.0 is installed."
+            )
+        logger.exception("Prediction failed - AttributeError")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
     except Exception as e:
         logger.exception("Prediction failed")
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
