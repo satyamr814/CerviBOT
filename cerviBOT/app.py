@@ -340,41 +340,68 @@ def health() -> Dict[str, Any]:
     has_predict = hasattr(model, 'predict') if model is not None else False
     has_predict_proba = hasattr(model, 'predict_proba') if model is not None else False
     
-    # Try a test prediction if model is loaded
+    # Try a test prediction if model is loaded - actually test the model works
     test_prediction_works = False
+    test_prediction_error = None
     if model_loaded and has_predict_proba:
         try:
-            # Create a minimal test input
-            import pandas as pd
-            test_data = pd.DataFrame([{
+            # Create a minimal test input using the same format as the predict endpoint
+            test_input = {
                 'Age': 30,
-                'Num of sexual partners': 2,
-                '1st sexual intercourse (age)': 18,
-                'Num of pregnancies': 1,
-                'Smokes (years)': 0.0,
-                'Hormonal contraceptives': 0,
-                'Hormonal contraceptives (years)': 0.0,
-                'STDs:HIV': 0,
-                'Pain during intercourse': 'No',
-                'Vaginal discharge (type- watery, bloody or thick)': 'None',
-                'Vaginal discharge(color-pink, pale or bloody)': 'normal',
-                'Vaginal bleeding(time-b/w periods , After sex or after menopause)': 'None'
-            }])
-            # This is a basic check - actual prediction will use preprocessing
-            test_prediction_works = True
+                'Num_of_sexual_partners': 2,
+                'First_sex_age': 18,
+                'Num_of_pregnancies': 1,
+                'Smokes_years': 0.0,
+                'Hormonal_contraceptives': 'No',
+                'Hormonal_contraceptives_years': 0.0,
+                'STDs_HIV': 'No',
+                'Pain_during_intercourse': 'No',
+                'Vaginal_discharge_type': 'None',
+                'Vaginal_discharge_color': 'normal',
+                'Vaginal_bleeding_timing': 'None'
+            }
+            
+            # Preprocess the input (same as predict endpoint)
+            X = preprocess_input(test_input)
+            X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
+            
+            # Actually call the model's predict_proba method
+            if hasattr(model, 'predict_proba'):
+                proba = model.predict_proba(X_ordered)[0]
+                # Verify we got a valid probability (should be array with 2 values for binary classification)
+                if len(proba) >= 2 and 0 <= proba[1] <= 1:
+                    test_prediction_works = True
+                    logger.debug(f"Test prediction successful: probability = {proba[1]:.4f}")
+                else:
+                    test_prediction_error = f"Invalid probability output: {proba}"
+            elif hasattr(model, 'predict'):
+                # Fallback to predict if predict_proba not available
+                pred = model.predict(X_ordered)[0]
+                test_prediction_works = True
+                logger.debug(f"Test prediction successful (using predict): {pred}")
+            else:
+                test_prediction_error = "Model missing both predict and predict_proba methods"
+                
         except Exception as e:
+            test_prediction_error = str(e)
             logger.debug(f"Test prediction check failed: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+    
+    # Overall status: ok only if model is loaded AND test prediction works
+    overall_status = "ok" if (model_loaded and test_prediction_works) else "error"
     
     return {
-        "status": "ok" if model_loaded else "error",
+        "status": overall_status,
         "model_loaded": model_loaded,
         "model_path": model_path or "",
         "model_type": type(model).__name__ if model is not None else None,
         "has_predict": has_predict,
         "has_predict_proba": has_predict_proba,
         "test_prediction_works": test_prediction_works,
+        "test_prediction_error": test_prediction_error if not test_prediction_works else None,
         "version": "2.0.0",
-        "checks_passed": model_loaded and has_predict and has_predict_proba
+        "checks_passed": model_loaded and has_predict and has_predict_proba and test_prediction_works
     }
 
 
