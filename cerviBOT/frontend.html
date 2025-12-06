@@ -369,16 +369,39 @@
       }
 
       qArea.innerHTML = '';
-      bot(s.text);
       
+      // Create question container
+      const questionContainer = document.createElement('div');
+      questionContainer.style.marginBottom = '15px';
+      
+      // Add question text
+      const questionText = document.createElement('div');
+      questionText.className = 'bot-text';
+      questionText.textContent = s.text;
+      questionText.style.marginBottom = '15px';
+      questionContainer.appendChild(questionText);
+      
+      // Add progress indicator
       const progressDiv = document.createElement('div');
       progressDiv.className = 'progress-indicator';
       progressDiv.textContent = `Question ${stepIndex + 1} of ${steps.length}`;
-      qArea.appendChild(progressDiv);
+      questionContainer.appendChild(progressDiv);
+      
+      // Add bot message with question
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message bot-message';
+      const avatar = document.createElement('div');
+      avatar.className = 'bot-avatar';
+      avatar.textContent = '🤖';
+      messageDiv.appendChild(avatar);
+      messageDiv.appendChild(questionContainer);
+      conversation.appendChild(messageDiv);
 
       if (s.type === 'options') {
+        // Options directly in question area, right below question
         const div = document.createElement('div');
         div.className = 'options-container';
+        div.style.marginTop = '10px';
         s.options.forEach(opt => {
           const btn = document.createElement('button');
           btn.className = 'option-btn';
@@ -395,6 +418,7 @@
       } else if (s.type === 'number') {
         const inputGroup = document.createElement('div');
         inputGroup.className = 'input-group';
+        inputGroup.style.marginTop = '10px';
         
         const input = document.createElement('input');
         input.type = 'number';
@@ -422,6 +446,8 @@
         // Auto-focus input
         setTimeout(() => input.focus(), 100);
       }
+      
+      conversation.scrollTop = conversation.scrollHeight;
     }
 
     function handleNumberInput(step, input) {

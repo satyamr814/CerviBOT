@@ -31,13 +31,17 @@ def find_model_path():
     cwd = os.getcwd()
     
     possible_paths = [
-        # New model location
+        # New model location (primary)
         os.path.join(app_dir, "model_files", "cervical_cancer_model.pkl"),
+        os.path.join(cwd, "model_files", "cervical_cancer_model.pkl"),
+        # If app.py is in cerviBOT subdirectory
+        os.path.join(app_dir, "..", "model_files", "cervical_cancer_model.pkl"),
+        os.path.join(cwd, "cerviBOT", "model_files", "cervical_cancer_model.pkl"),
         # Old model location (backward compatibility)
         os.path.join(app_dir, "backend", "xgb_cervical_pipeline.pkl"),
-        # Current working directory
         os.path.join(cwd, "backend", "xgb_cervical_pipeline.pkl"),
-        # Simple relative path
+        # Simple relative paths
+        "model_files/cervical_cancer_model.pkl",
         "backend/xgb_cervical_pipeline.pkl",
         # If app.py is in a subdirectory
         os.path.join(os.path.dirname(app_dir), "backend", "xgb_cervical_pipeline.pkl"),
@@ -45,6 +49,9 @@ def find_model_path():
         os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
         # Also try directly in app_dir
         os.path.join(app_dir, "xgb_cervical_pipeline.pkl"),
+        # Render deployment paths
+        os.path.join(cwd, "cerviBOT", "model_files", "cervical_cancer_model.pkl"),
+        os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
     ]
     
     logger.info(f"Searching for model file. App dir: {app_dir}, CWD: {cwd}")
