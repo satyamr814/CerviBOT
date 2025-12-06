@@ -253,23 +253,6 @@ async def startup_event():
                         logger.debug(f"Error searching {search_dir}: {e}")
     else:
         logger.info(f"Model already loaded from: {model_path}")
-    
-    # Final verification check - ensure model is actually loaded
-    if model is None:
-        logger.error("=" * 70)
-        logger.error("CRITICAL: Model is still None after startup!")
-        logger.error("=" * 70)
-        logger.error("Model loading failed. The application may not work correctly.")
-        logger.error("Please check the logs above for errors.")
-    else:
-        logger.info("=" * 70)
-        logger.info("✓ MODEL LOADING VERIFICATION PASSED")
-        logger.info("=" * 70)
-        logger.info(f"Model type: {type(model).__name__}")
-        logger.info(f"Model path: {model_path}")
-        logger.info(f"Has predict: {hasattr(model, 'predict')}")
-        logger.info(f"Has predict_proba: {hasattr(model, 'predict_proba')}")
-        logger.info("=" * 70)
 
 
 # ---------- Pydantic input schema ----------
@@ -334,78 +317,21 @@ def test_ui():
 
 @app.get("/health")
 def health() -> Dict[str, Any]:
-    """Health check endpoint with detailed model status."""
-    # Multiple checks to ensure model is loaded
-    model_loaded = model is not None
-    has_predict = hasattr(model, 'predict') if model is not None else False
-    has_predict_proba = hasattr(model, 'predict_proba') if model is not None else False
-    
-    # Try a test prediction if model is loaded
-    test_prediction_works = False
-    if model_loaded and has_predict_proba:
-        try:
-            # Create a minimal test input
-            import pandas as pd
-            test_data = pd.DataFrame([{
-                'Age': 30,
-                'Num of sexual partners': 2,
-                '1st sexual intercourse (age)': 18,
-                'Num of pregnancies': 1,
-                'Smokes (years)': 0.0,
-                'Hormonal contraceptives': 0,
-                'Hormonal contraceptives (years)': 0.0,
-                'STDs:HIV': 0,
-                'Pain during intercourse': 'No',
-                'Vaginal discharge (type- watery, bloody or thick)': 'None',
-                'Vaginal discharge(color-pink, pale or bloody)': 'normal',
-                'Vaginal bleeding(time-b/w periods , After sex or after menopause)': 'None'
-            }])
-            # This is a basic check - actual prediction will use preprocessing
-            test_prediction_works = True
-        except Exception as e:
-            logger.debug(f"Test prediction check failed: {e}")
-    
+    """Health check endpoint."""
     return {
-        "status": "ok" if model_loaded else "error",
-        "model_loaded": model_loaded,
+        "status": "ok",
+        "model_loaded": model is not None,
         "model_path": model_path or "",
-        "model_type": type(model).__name__ if model is not None else None,
-        "has_predict": has_predict,
-        "has_predict_proba": has_predict_proba,
-        "test_prediction_works": test_prediction_works,
-        "version": "2.0.0",
-        "checks_passed": model_loaded and has_predict and has_predict_proba
+        "version": "2.0.0"
     }
 
 
 @app.post("/predict")
 def predict(options: UserOptions) -> Dict[str, Any]:
     """Make a prediction based on user input."""
-    global model, model_path
-    
-    # Triple check that model is loaded
+    global model
     if model is None:
-        logger.error("PREDICT ENDPOINT: Model is None!")
-        # Try one more time to load
-        found_path = find_model_path()
-        if found_path:
-            logger.info(f"Attempting emergency model load from: {found_path}")
-            loaded_model, loaded_path = try_load_model(found_path)
-            if loaded_model is not None:
-                model = loaded_model
-                model_path = loaded_path
-                logger.info("Emergency model load successful!")
-            else:
-                raise HTTPException(status_code=503, detail="Model not loaded. Use /upload-model or place model at configured path.")
-        else:
-            raise HTTPException(status_code=503, detail="Model not loaded. Use /upload-model or place model at configured path.")
-    
-    # Verify model has required methods
-    if not hasattr(model, 'predict') and not hasattr(model, 'predict_proba'):
-        logger.error("PREDICT ENDPOINT: Model missing predict methods!")
-        raise HTTPException(status_code=503, detail="Model loaded but missing required methods. Please retrain or upload a valid model.")
-    
-    logger.info(f"Making prediction with model from: {model_path}")
+        raise HTTPException(status_code=503, detail="Model not loaded. Use /upload-model or place model at configured path.")
 
     # Validate input
     is_valid, error_msg = validate_input(options.dict())
@@ -577,26 +503,12 @@ def example_profiles() -> Dict[str, Any]:
         },
         "high_risk": {
             "Age": 45,
-            "Num_of_sexual_partners": 8,
+            "Num_of_sexual_partners": 5,
             "First_sex_age": 14,
-            "Num_of_pregnancies": 5,
-            "Smokes_years": 20.0,
+            "Num_of_pregnancies": 4,
+            "Smokes_years": 15.0,
             "Hormonal_contraceptives": "Yes",
-            "Hormonal_contraceptives_years": 25.0,
-            "STDs_HIV": "Yes",
-            "Pain_during_intercourse": "Yes",
-            "Vaginal_discharge_type": "bloody",
-            "Vaginal_discharge_color": "bloody",
-            "Vaginal_bleeding_timing": "After sex"
-        },
-        "high_risk_extreme": {
-            "Age": 48,
-            "Num_of_sexual_partners": 10,
-            "First_sex_age": 13,
-            "Num_of_pregnancies": 6,
-            "Smokes_years": 25.0,
-            "Hormonal_contraceptives": "Yes",
-            "Hormonal_contraceptives_years": 30.0,
+            "Hormonal_contraceptives_years": 20.0,
             "STDs_HIV": "Yes",
             "Pain_during_intercourse": "Yes",
             "Vaginal_discharge_type": "bloody",

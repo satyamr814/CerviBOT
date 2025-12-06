@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY frontend.html .
 COPY backend/ ./backend/
+COPY model_files/ ./model_files/
 
 # Expose port
 EXPOSE 8000

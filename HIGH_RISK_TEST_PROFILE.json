@@ -1,0 +1,39 @@
+{
+  "profile_name": "High Risk Test Profile",
+  "description": "A high-risk profile for testing the cervical cancer risk prediction bot. This profile includes multiple risk factors that should result in a high risk prediction (60-90% probability).",
+  "test_data": {
+    "Age": 45,
+    "Num_of_sexual_partners": 8,
+    "First_sex_age": 14,
+    "Num_of_pregnancies": 5,
+    "Smokes_years": 20.0,
+    "Hormonal_contraceptives": "Yes",
+    "Hormonal_contraceptives_years": 25.0,
+    "STDs_HIV": "Yes",
+    "Pain_during_intercourse": "Yes",
+    "Vaginal_discharge_type": "bloody",
+    "Vaginal_discharge_color": "bloody",
+    "Vaginal_bleeding_timing": "After sex"
+  },
+  "expected_risk_level": "High",
+  "expected_probability_range": "60-90%",
+  "risk_factors": [
+    "Older age (45 years)",
+    "Multiple sexual partners (8)",
+    "Early first sexual intercourse (14 years)",
+    "Multiple pregnancies (5)",
+    "Long-term smoking (20 years)",
+    "Long-term hormonal contraceptive use (25 years)",
+    "HIV positive",
+    "Pain during intercourse",
+    "Bloody vaginal discharge",
+    "Vaginal bleeding after sex"
+  ],
+  "how_to_test": {
+    "method_1": "Use the /predict endpoint with this JSON body",
+    "method_2": "Use the frontend UI and enter these values",
+    "curl_example": "curl -X POST http://your-app-url/predict -H 'Content-Type: application/json' -d @HIGH_RISK_TEST_PROFILE.json"
+  },
+  "notes": "This profile should trigger a HIGH risk prediction. If the model predicts low risk (<33%), the model needs to be retrained with the improved training script."
+}
+
