@@ -30,46 +30,77 @@ def find_model_path():
     app_dir = os.path.dirname(os.path.abspath(__file__))
     cwd = os.getcwd()
     
-    possible_paths = [
-        # New model location (primary) - relative to app.py
-        os.path.join(app_dir, "model_files", "cervical_cancer_model.pkl"),
-        # Current working directory (Render uses rootDir: cerviBOT)
-        os.path.join(cwd, "model_files", "cervical_cancer_model.pkl"),
-        # Simple relative path from cwd
-        os.path.join(cwd, "cervical_cancer_model.pkl"),
-        # If app.py is in cerviBOT subdirectory
-        os.path.join(app_dir, "..", "model_files", "cervical_cancer_model.pkl"),
-        os.path.join(cwd, "cerviBOT", "model_files", "cervical_cancer_model.pkl"),
-        # Old model location (backward compatibility)
-        os.path.join(app_dir, "backend", "xgb_cervical_pipeline.pkl"),
-        os.path.join(cwd, "backend", "xgb_cervical_pipeline.pkl"),
-        # Simple relative paths
-        "model_files/cervical_cancer_model.pkl",
-        "backend/xgb_cervical_pipeline.pkl",
-        # If app.py is in a subdirectory
-        os.path.join(os.path.dirname(app_dir), "backend", "xgb_cervical_pipeline.pkl"),
-        # Absolute path from cwd
-        os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
-        # Also try directly in app_dir
-        os.path.join(app_dir, "xgb_cervical_pipeline.pkl"),
-        # Render deployment paths (rootDir is cerviBOT, so cwd should be cerviBOT)
-        os.path.join(cwd, "cerviBOT", "model_files", "cervical_cancer_model.pkl"),
-        os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
-    ]
+    # Build comprehensive list of paths to check
+    possible_paths = []
+    
+    # Primary: relative to app.py location
+    possible_paths.append(os.path.join(app_dir, "model_files", "cervical_cancer_model.pkl"))
+    
+    # Current working directory (Render with rootDir: cerviBOT means cwd is the cerviBOT folder)
+    possible_paths.append(os.path.join(cwd, "model_files", "cervical_cancer_model.pkl"))
+    
+    # Simple relative paths (from cwd)
+    possible_paths.append("model_files/cervical_cancer_model.pkl")
+    possible_paths.append("./model_files/cervical_cancer_model.pkl")
+    
+    # If app.py is in a subdirectory, check parent
+    parent_dir = os.path.dirname(app_dir)
+    possible_paths.append(os.path.join(parent_dir, "model_files", "cervical_cancer_model.pkl"))
+    
+    # Backward compatibility: old model locations
+    possible_paths.append(os.path.join(app_dir, "backend", "xgb_cervical_pipeline.pkl"))
+    possible_paths.append(os.path.join(cwd, "backend", "xgb_cervical_pipeline.pkl"))
+    possible_paths.append("backend/xgb_cervical_pipeline.pkl")
+    
+    # Render-specific: if rootDir is cerviBOT, files are directly in cwd
+    # But also check if cwd is /app and files are in /app/cerviBOT
+    if "cerviBOT" not in cwd and "cerviBOT" in app_dir:
+        # We're in /app, files are in /app/cerviBOT
+        cervibot_path = os.path.join(cwd, "cerviBOT") if "cerviBOT" not in cwd else cwd
+        possible_paths.append(os.path.join(cervibot_path, "model_files", "cervical_cancer_model.pkl"))
+        possible_paths.append(os.path.join(cervibot_path, "backend", "xgb_cervical_pipeline.pkl"))
+    
+    # Also check if we need to go up from app_dir
+    if os.path.basename(app_dir) == "cerviBOT":
+        # app.py is in cerviBOT/, model_files should be in cerviBOT/model_files/
+        possible_paths.append(os.path.join(app_dir, "model_files", "cervical_cancer_model.pkl"))
     
     logger.info(f"Searching for model file. App dir: {app_dir}, CWD: {cwd}")
+    logger.info(f"App dir basename: {os.path.basename(app_dir)}")
+    
+    # Also list what files actually exist in key directories
+    for check_dir in [app_dir, cwd, os.path.join(cwd, "model_files"), os.path.join(app_dir, "model_files")]:
+        if os.path.exists(check_dir):
+            try:
+                files = os.listdir(check_dir)
+                logger.debug(f"Files in {check_dir}: {files[:10]}")  # First 10 files
+            except:
+                pass
     
     for path in possible_paths:
         abs_path = os.path.abspath(path)
         if os.path.exists(abs_path) and os.path.isfile(abs_path):
-            logger.info(f"Found model at: {abs_path}")
+            logger.info(f"✓ Found model at: {abs_path}")
             return abs_path
         else:
-            logger.debug(f"Checked (not found): {abs_path}")
+            logger.debug(f"  Checked (not found): {abs_path}")
     
     # Log warning with all checked paths
     checked_paths = [os.path.abspath(p) for p in possible_paths]
     logger.warning(f"Model not found. Checked paths: {checked_paths}")
+    
+    # Last resort: try to find any .pkl file in model_files directories
+    for check_dir in [os.path.join(app_dir, "model_files"), os.path.join(cwd, "model_files")]:
+        if os.path.exists(check_dir):
+            try:
+                for file in os.listdir(check_dir):
+                    if file.endswith(".pkl") and "cervical" in file.lower():
+                        found_path = os.path.join(check_dir, file)
+                        logger.info(f"✓ Found model file (by name search): {found_path}")
+                        return found_path
+            except Exception as e:
+                logger.debug(f"Error searching {check_dir}: {e}")
+    
     return None  # Return None instead of a non-existent path
 
 MODEL_PATH = find_model_path()
