@@ -1,15 +1,23 @@
 # app.py
 import os
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+import base64
+import io
 
 import joblib
 import pandas as pd
+import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel, Field
 import uvicorn
+
+# Import preprocessing module
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+from preprocess import preprocess_input, validate_input
 
 # ---------- Logging (setup early) ----------
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +31,9 @@ def find_model_path():
     cwd = os.getcwd()
     
     possible_paths = [
-        # Relative to app.py location (most common)
+        # New model location
+        os.path.join(app_dir, "model_files", "cervical_cancer_model.pkl"),
+        # Old model location (backward compatibility)
         os.path.join(app_dir, "backend", "xgb_cervical_pipeline.pkl"),
         # Current working directory
         os.path.join(cwd, "backend", "xgb_cervical_pipeline.pkl"),
@@ -123,11 +133,11 @@ if MODEL_PATH and os.path.exists(MODEL_PATH):
     if model is None:
         logger.warning("Model file exists but failed to load. Use /upload-model to upload a valid model.")
 else:
-    logger.info(f"Model file not found. Use /upload-model to upload one or place it at: {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend', 'xgb_cervical_pipeline.pkl')}")
+    logger.info(f"Model file not found. Use /upload-model to upload one or place it at: {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'model_files', 'cervical_cancer_model.pkl')}")
 
 
 # ---------- App & CORS ----------
-app = FastAPI(title="Cervical Cancer Risk Chatbot Backend")
+app = FastAPI(title="Cervical Cancer Risk Chatbot Backend", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # restrict in production
@@ -168,22 +178,23 @@ async def startup_event():
 
 # ---------- Pydantic input schema ----------
 class UserOptions(BaseModel):
-    Age: int
-    Num_of_sexual_partners: int
-    First_sex_age: int
-    Num_of_pregnancies: int
-    Smokes_years: float
-    Hormonal_contraceptives: str
-    Hormonal_contraceptives_years: float
-    STDs_HIV: str
-    Pain_during_intercourse: str
-    Vaginal_discharge_type: str
-    Vaginal_discharge_color: str
-    Vaginal_bleeding_timing: str
+    Age: int = Field(..., ge=0, le=120, description="Age in years")
+    Num_of_sexual_partners: int = Field(..., ge=0, description="Number of sexual partners")
+    First_sex_age: int = Field(..., ge=0, le=120, description="Age at first sexual intercourse")
+    Num_of_pregnancies: int = Field(..., ge=0, description="Number of pregnancies")
+    Smokes_years: float = Field(0.0, ge=0, description="Years of smoking")
+    Hormonal_contraceptives: str = Field("No", description="Using hormonal contraceptives (Yes/No)")
+    Hormonal_contraceptives_years: float = Field(0.0, ge=0, description="Years of hormonal contraceptive use")
+    STDs_HIV: str = Field("No", description="HIV status (Yes/No/Negative/Positive)")
+    Pain_during_intercourse: str = Field("No", description="Pain during intercourse (Yes/No)")
+    Vaginal_discharge_type: str = Field("None", description="Vaginal discharge type")
+    Vaginal_discharge_color: str = Field("normal", description="Vaginal discharge color")
+    Vaginal_bleeding_timing: str = Field("None", description="Vaginal bleeding timing")
 
 
 # ---------- Helpers ----------
 def risk_bucket(proba: float) -> str:
+    """Categorize risk based on probability."""
     if proba < 0.33:
         return "Low"
     elif proba < 0.67:
@@ -192,45 +203,14 @@ def risk_bucket(proba: float) -> str:
         return "High"
 
 
-def map_user_to_df(user: UserOptions) -> pd.DataFrame:
-    """Convert user input to DataFrame matching model's expected format."""
-    # Helper function to convert Yes/No strings to 0/1 integers
-    def yes_no_to_int(value):
-        if isinstance(value, str):
-            value_lower = value.lower().strip()
-            if value_lower in ['yes', '1', 'true']:
-                return 1
-            elif value_lower in ['no', '0', 'false', 'none', '']:
-                return 0
-            else:
-                # Try to convert directly if it's already a number string
-                try:
-                    return int(float(value))
-                except (ValueError, TypeError):
-                    return 0
-        elif isinstance(value, (int, float)):
-            return int(value)
-        else:
-            return 0
-    
-    row = {
-        'Age': int(user.Age),
-        'Num of sexual partners': int(user.Num_of_sexual_partners),
-        '1st sexual intercourse (age)': int(user.First_sex_age),
-        'Num of pregnancies': int(user.Num_of_pregnancies),
-        'Smokes (years)': float(user.Smokes_years),
-        # Convert Yes/No strings to 0/1 integers for numeric columns
-        'Hormonal contraceptives': yes_no_to_int(user.Hormonal_contraceptives),
-        'Hormonal contraceptives (years)': float(user.Hormonal_contraceptives_years),
-        'STDs:HIV': yes_no_to_int(user.STDs_HIV),
-        # Keep categorical columns as strings
-        'Pain during intercourse': str(user.Pain_during_intercourse),
-        'Vaginal discharge (type- watery, bloody or thick)': str(user.Vaginal_discharge_type),
-        'Vaginal discharge(color-pink, pale or bloody)': str(user.Vaginal_discharge_color),
-        'Vaginal bleeding(time-b/w periods , After sex or after menopause)': str(user.Vaginal_bleeding_timing)
+def get_risk_color(risk: str) -> str:
+    """Get color code for risk level."""
+    colors = {
+        "Low": "#10b981",      # Green
+        "Medium": "#f59e0b",   # Yellow/Orange
+        "High": "#ef4444"      # Red
     }
-    df = pd.DataFrame([{k: row[k] for k in FEATURE_ORDER}])
-    return df
+    return colors.get(risk, "#6b7280")
 
 
 # ---------- Endpoints ----------
@@ -245,31 +225,52 @@ def read_root():
         return HTMLResponse(content="<h1>Frontend file not found</h1>", status_code=404)
 
 
+@app.get("/ui/test", response_class=HTMLResponse)
+def test_ui():
+    """Serve the test UI page."""
+    test_ui_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_ui.html")
+    if os.path.exists(test_ui_path):
+        with open(test_ui_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>Test UI file not found</h1>", status_code=404)
+
+
 @app.get("/health")
 def health() -> Dict[str, Any]:
+    """Health check endpoint."""
     return {
         "status": "ok",
         "model_loaded": model is not None,
         "model_path": model_path or "",
+        "version": "2.0.0"
     }
 
 
 @app.post("/predict")
 def predict(options: UserOptions) -> Dict[str, Any]:
+    """Make a prediction based on user input."""
     global model
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded. Use /upload-model or place model at configured path.")
 
+    # Validate input
+    is_valid, error_msg = validate_input(options.dict())
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     try:
-        X = map_user_to_df(options)
+        # Preprocess input using the preprocessing module
+        X = preprocess_input(options.dict())
     except Exception as e:
-        logger.exception("Invalid input mapping")
+        logger.exception("Invalid input preprocessing")
         raise HTTPException(status_code=400, detail=f"Invalid input: {e}")
 
     try:
+        # Ensure X has the correct column order
+        X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
+        
         if hasattr(model, "predict_proba"):
-            # Ensure X has the correct column order
-            X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
             proba = float(model.predict_proba(X_ordered)[0][1])
             prob_source = "predict_proba"
         else:
@@ -292,6 +293,8 @@ def predict(options: UserOptions) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
     bucket = risk_bucket(proba)
+    risk_color = get_risk_color(bucket)
+    
     if bucket == "Low":
         advice = "Low risk — routine screening as per local guidelines is recommended."
     elif bucket == "Medium":
@@ -313,10 +316,126 @@ def predict(options: UserOptions) -> Dict[str, Any]:
 
     return {
         "probability": proba,
+        "probability_percent": round(proba * 100, 2),
         "probability_source": prob_source,
         "risk_bucket": bucket,
+        "risk_color": risk_color,
         "advice": advice,
         "feature_importances_estimator": feature_imp,
+        "label": "Positive" if proba >= 0.5 else "Negative",
+        "confidence": "High" if abs(proba - 0.5) > 0.3 else "Medium" if abs(proba - 0.5) > 0.15 else "Low"
+    }
+
+
+@app.post("/explain")
+def explain_prediction(options: UserOptions) -> Dict[str, Any]:
+    """Generate SHAP explanation for the prediction (optional)."""
+    global model
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded.")
+    
+    try:
+        import shap
+    except ImportError:
+        raise HTTPException(status_code=501, detail="SHAP not installed. Install with: pip install shap")
+    
+    try:
+        # Preprocess input
+        X = preprocess_input(options.dict())
+        X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
+        
+        # Get prediction
+        proba = float(model.predict_proba(X_ordered)[0][1])
+        
+        # Create SHAP explainer
+        # For tree models, use TreeExplainer
+        if hasattr(model, 'named_steps') and 'model' in model.named_steps:
+            xgb_model = model.named_steps['model']
+        else:
+            xgb_model = model
+        
+        explainer = shap.TreeExplainer(xgb_model)
+        
+        # Get SHAP values (need to transform X through pipeline first)
+        if hasattr(model, 'named_steps') and 'preprocessor' in model.named_steps:
+            X_transformed = model.named_steps['preprocessor'].transform(X_ordered)
+            shap_values = explainer.shap_values(X_transformed)
+        else:
+            shap_values = explainer.shap_values(X_ordered)
+        
+        # Get feature names
+        if hasattr(model, 'named_steps') and 'preprocessor' in model.named_steps:
+            feature_names = model.named_steps['preprocessor'].get_feature_names_out()
+        else:
+            feature_names = list(X_ordered.columns)
+        
+        # Create feature importance dict
+        feature_importance = {}
+        if isinstance(shap_values, list):
+            shap_vals = shap_values[1] if len(shap_values) > 1 else shap_values[0]
+        else:
+            shap_vals = shap_values
+        
+        for i, name in enumerate(feature_names):
+            if i < len(shap_vals[0]):
+                feature_importance[str(name)] = float(shap_vals[0][i])
+        
+        return {
+            "probability": proba,
+            "feature_importance": feature_importance,
+            "message": "SHAP explanation generated successfully"
+        }
+    except Exception as e:
+        logger.exception("SHAP explanation failed")
+        raise HTTPException(status_code=500, detail=f"Explanation failed: {e}")
+
+
+@app.get("/example_profiles")
+def example_profiles() -> Dict[str, Any]:
+    """Return example profiles for testing."""
+    return {
+        "low_risk": {
+            "Age": 25,
+            "Num_of_sexual_partners": 1,
+            "First_sex_age": 20,
+            "Num_of_pregnancies": 0,
+            "Smokes_years": 0.0,
+            "Hormonal_contraceptives": "No",
+            "Hormonal_contraceptives_years": 0.0,
+            "STDs_HIV": "No",
+            "Pain_during_intercourse": "No",
+            "Vaginal_discharge_type": "None",
+            "Vaginal_discharge_color": "normal",
+            "Vaginal_bleeding_timing": "None"
+        },
+        "medium_risk": {
+            "Age": 35,
+            "Num_of_sexual_partners": 3,
+            "First_sex_age": 16,
+            "Num_of_pregnancies": 2,
+            "Smokes_years": 5.0,
+            "Hormonal_contraceptives": "Yes",
+            "Hormonal_contraceptives_years": 8.0,
+            "STDs_HIV": "No",
+            "Pain_during_intercourse": "Yes",
+            "Vaginal_discharge_type": "watery",
+            "Vaginal_discharge_color": "pink",
+            "Vaginal_bleeding_timing": "Between periods"
+        },
+        "high_risk": {
+            "Age": 45,
+            "Num_of_sexual_partners": 5,
+            "First_sex_age": 14,
+            "Num_of_pregnancies": 4,
+            "Smokes_years": 15.0,
+            "Hormonal_contraceptives": "Yes",
+            "Hormonal_contraceptives_years": 20.0,
+            "STDs_HIV": "Yes",
+            "Pain_during_intercourse": "Yes",
+            "Vaginal_discharge_type": "bloody",
+            "Vaginal_discharge_color": "bloody",
+            "Vaginal_bleeding_timing": "After sex"
+        }
     }
 
 
@@ -334,7 +453,11 @@ async def upload_model(file: UploadFile = File(...)) -> Dict[str, Any]:
         if ext not in allowed_ext:
             raise HTTPException(status_code=400, detail=f"Unsupported file extension: {ext}")
 
-        target_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), safe_name)
+        # Save to model_files directory
+        model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model_files")
+        os.makedirs(model_dir, exist_ok=True)
+        target_path = os.path.join(model_dir, safe_name)
+
         with open(target_path, "wb") as f:
             f.write(contents)
 

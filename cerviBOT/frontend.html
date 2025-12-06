@@ -1,141 +1,552 @@
-<!-- frontend.html -->
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Option-based Cervical Risk Chatbot</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cervical Health Risk Assessment Chatbot</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width:720px; margin:20px auto; }
-    .chat { border:1px solid #ddd; padding:12px; border-radius:8px; }
-    .bot { color: #111; margin:8px 0; }
-    .user { color: #006; margin:8px 0; text-align:right; }
-    .options { margin-top:10px; }
-    button.opt { margin:4px; padding:8px 12px; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 800px;
+      height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8f9fa;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bot-message {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .bot-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .bot-text {
+      background: white;
+      padding: 12px 16px;
+      border-radius: 18px;
+      max-width: 70%;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      line-height: 1.5;
+    }
+
+    .user-message {
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
+    .user-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 18px;
+      max-width: 70%;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .result-box {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+
+    .risk-low { background: #10b981; color: white; }
+    .risk-medium { background: #f59e0b; color: white; }
+    .risk-high { background: #ef4444; color: white; }
+
+    .probability-gauge {
+      width: 100%;
+      height: 30px;
+      background: #e5e7eb;
+      border-radius: 15px;
+      overflow: hidden;
+      margin: 15px 0;
+      position: relative;
+    }
+
+    .probability-fill {
+      height: 100%;
+      transition: width 0.5s ease;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .question-area {
+      padding: 20px;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .options-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .option-btn {
+      padding: 12px 20px;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .option-btn:hover {
+      background: #667eea;
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .number-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 25px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .number-input:focus {
+      border-color: #667eea;
+    }
+
+    .submit-btn {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .submit-btn:active {
+      transform: scale(0.95);
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .explain-btn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.3s;
+    }
+
+    .explain-btn:hover {
+      background: #4b5563;
+    }
+
+    .progress-indicator {
+      text-align: center;
+      color: #6b7280;
+      font-size: 12px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <h2>Cervical Health Chatbot (Option-based)</h2>
-  <div id="conversation" class="chat"></div>
+  <div class="container">
+    <div class="header">
+      <h1>🏥 Cervical Health Risk Assessment</h1>
+      <p>Answer a few questions to assess your risk level</p>
+    </div>
 
-  <div id="question-area"></div>
+    <div class="chat-container" id="conversation"></div>
+
+    <div class="question-area" id="question-area"></div>
+  </div>
 
   <script>
-  // Keep a simple state object to collect answers
-  const state = {
-    Age: null,
-    Num_of_sexual_partners: null,
-    First_sex_age: null,
-    Num_of_pregnancies: null,
-    Smokes_years: 0,
-    Hormonal_contraceptives: 'No',
-    Hormonal_contraceptives_years: 0,
-    STDs_HIV: 'Negative',
-    Pain_during_intercourse: 'No',
-    Vaginal_discharge_type: 'None',
-    Vaginal_discharge_color: 'normal',
-    Vaginal_bleeding_timing: 'None'
-  };
+    const state = {
+      Age: null,
+      Num_of_sexual_partners: null,
+      First_sex_age: null,
+      Num_of_pregnancies: null,
+      Smokes_years: 0,
+      Hormonal_contraceptives: 'No',
+      Hormonal_contraceptives_years: 0,
+      STDs_HIV: 'No',
+      Pain_during_intercourse: 'No',
+      Vaginal_discharge_type: 'None',
+      Vaginal_discharge_color: 'normal',
+      Vaginal_bleeding_timing: 'None'
+    };
 
-  const conversation = document.getElementById('conversation');
-  const qArea = document.getElementById('question-area');
+    const conversation = document.getElementById('conversation');
+    const qArea = document.getElementById('question-area');
 
-  function bot(msg){ conversation.innerHTML += `<div class="bot">${msg}</div>`; conversation.scrollTop = conversation.scrollHeight; }
-  function user(msg){ conversation.innerHTML += `<div class="user">${msg}</div>`; conversation.scrollTop = conversation.scrollHeight; }
-
-  // Sequence of questions (option-based)
-  const steps = [
-    { key: 'Age', text: 'What is your age?', type: 'number' },
-    { key: 'Num_of_sexual_partners', text: 'Number of sexual partners?', type:'number' },
-    { key: 'First_sex_age', text: 'Age at first sexual intercourse?', type:'number' },
-    { key: 'Num_of_pregnancies', text: 'Number of pregnancies?', type:'number' },
-    { key: 'Smokes_years', text: 'Years of smoking (0 if none)?', type:'number' },
-    { key: 'Hormonal_contraceptives', text: 'Using hormonal contraceptives?', type:'options', options:['Yes','No'] },
-    { key: 'Hormonal_contraceptives_years', text: 'If yes, how many years (0 if no)?', type:'number' },
-    { key: 'STDs_HIV', text: 'HIV status?', type:'options', options:['Negative','Positive','Unknown'] },
-    { key: 'Pain_during_intercourse', text: 'Pain during intercourse?', type:'options', options:['Yes','No'] },
-    { key: 'Vaginal_discharge_type', text: 'Vaginal discharge type?', type:'options', options:['None','watery','thick','bloody'] },
-    { key: 'Vaginal_discharge_color', text: 'Vaginal discharge color?', type:'options', options:['normal','pink','pale','bloody'] },
-    { key: 'Vaginal_bleeding_timing', text: 'Abnormal bleeding timing?', type:'options', options:['None','Between periods','After sex','After menopause'] },
-  ];
-
-  let stepIndex = 0;
-  function askNext(){
-    if(stepIndex >= steps.length){
-      // all answers collected — call predict
-      bot("Thanks — analyzing risk...");
-      sendToBackend();
-      qArea.innerHTML = '';
-      return;
-    }
-    const s = steps[stepIndex];
-    qArea.innerHTML = ''; // clear
-    bot(s.text);
-    if(s.type === 'options'){
-      const div = document.createElement('div');
-      div.className = 'options';
-      s.options.forEach(opt => {
-        const b = document.createElement('button');
-        b.className = 'opt';
-        b.innerText = opt;
-        b.onclick = () => { user(opt); state[s.key] = opt; stepIndex++; askNext(); };
-        div.appendChild(b);
-      });
-      qArea.appendChild(div);
-    } else if(s.type === 'number'){
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.id = 'num_input';
-      input.style.padding = '8px';
-      const btn = document.createElement('button');
-      btn.innerText = 'OK';
-      btn.onclick = () => {
-        const v = input.value;
-        user(v || '0');
-        state[s.key] = Number(v || 0);
-        stepIndex++; askNext();
-      };
-      qArea.appendChild(input);
-      qArea.appendChild(btn);
-    }
-  }
-
-  async function sendToBackend(){
-    try{
-      // map keys to backend schema naming
-      const payload = {
-        Age: state.Age,
-        Num_of_sexual_partners: state.Num_of_sexual_partners,
-        First_sex_age: state.First_sex_age,
-        Num_of_pregnancies: state.Num_of_pregnancies,
-        Smokes_years: state.Smokes_years,
-        Hormonal_contraceptives: state.Hormonal_contraceptives,
-        Hormonal_contraceptives_years: state.Hormonal_contraceptives_years,
-        STDs_HIV: state.STDs_HIV,
-        Pain_during_intercourse: state.Pain_during_intercourse,
-        Vaginal_discharge_type: state.Vaginal_discharge_type,
-        Vaginal_discharge_color: state.Vaginal_discharge_color,
-        Vaginal_bleeding_timing: state.Vaginal_bleeding_timing
-      };
-
-      const resp = await fetch('/predict', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-      if(resp.ok){
-        bot(`Risk probability: ${(data.probability*100).toFixed(1)}% — ${data.risk_bucket}`);
-        bot(data.advice);
-      }else{
-        bot("Error: " + (data.detail || JSON.stringify(data)));
+    function bot(msg, isResult = false) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message bot-message';
+      
+      const avatar = document.createElement('div');
+      avatar.className = 'bot-avatar';
+      avatar.textContent = '🤖';
+      
+      const text = document.createElement('div');
+      text.className = 'bot-text';
+      text.innerHTML = msg;
+      
+      messageDiv.appendChild(avatar);
+      messageDiv.appendChild(text);
+      conversation.appendChild(messageDiv);
+      
+      if (isResult) {
+        const resultBox = document.createElement('div');
+        resultBox.className = 'result-box';
+        resultBox.innerHTML = msg;
+        text.innerHTML = '';
+        text.appendChild(resultBox);
       }
-    }catch(err){
-      bot("Network or server error: " + err.message);
+      
+      conversation.scrollTop = conversation.scrollHeight;
     }
-  }
 
-  // Start
-  askNext();
+    function user(msg) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message user-message';
+      
+      const text = document.createElement('div');
+      text.className = 'user-text';
+      text.textContent = msg;
+      
+      messageDiv.appendChild(text);
+      conversation.appendChild(messageDiv);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    const steps = [
+      { key: 'Age', text: 'What is your age?', type: 'number' },
+      { key: 'Num_of_sexual_partners', text: 'How many sexual partners have you had?', type: 'number' },
+      { key: 'First_sex_age', text: 'At what age did you first have sexual intercourse?', type: 'number' },
+      { key: 'Num_of_pregnancies', text: 'How many pregnancies have you had?', type: 'number' },
+      { key: 'Smokes_years', text: 'How many years have you been smoking? (Enter 0 if you don\'t smoke)', type: 'number' },
+      { key: 'Hormonal_contraceptives', text: 'Are you currently using hormonal contraceptives?', type: 'options', options: ['Yes', 'No'] },
+      { key: 'Hormonal_contraceptives_years', text: 'If yes, for how many years? (Enter 0 if not applicable)', type: 'number', conditional: 'Hormonal_contraceptives', conditionalValue: 'Yes' },
+      { key: 'STDs_HIV', text: 'What is your HIV status?', type: 'options', options: ['No', 'Yes'] },
+      { key: 'Pain_during_intercourse', text: 'Do you experience pain during intercourse?', type: 'options', options: ['Yes', 'No'] },
+      { key: 'Vaginal_discharge_type', text: 'What type of vaginal discharge do you experience?', type: 'options', options: ['None', 'watery', 'thick', 'bloody'] },
+      { key: 'Vaginal_discharge_color', text: 'What color is your vaginal discharge?', type: 'options', options: ['normal', 'pink', 'pale', 'bloody'] },
+      { key: 'Vaginal_bleeding_timing', text: 'When do you experience abnormal vaginal bleeding?', type: 'options', options: ['None', 'Between periods', 'After sex', 'After menopause'] },
+    ];
+
+    let stepIndex = 0;
+    let currentInput = null;
+
+    function askNext() {
+      if (stepIndex >= steps.length) {
+        bot("Thanks for your answers! Analyzing your risk...");
+        qArea.innerHTML = '<div class="loading"></div>';
+        sendToBackend();
+        return;
+      }
+
+      const s = steps[stepIndex];
+      
+      // Skip conditional questions if condition not met
+      if (s.conditional && state[s.conditional] !== s.conditionalValue) {
+        stepIndex++;
+        askNext();
+        return;
+      }
+
+      qArea.innerHTML = '';
+      bot(s.text);
+      
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'progress-indicator';
+      progressDiv.textContent = `Question ${stepIndex + 1} of ${steps.length}`;
+      qArea.appendChild(progressDiv);
+
+      if (s.type === 'options') {
+        const div = document.createElement('div');
+        div.className = 'options-container';
+        s.options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.textContent = opt;
+          btn.onclick = () => {
+            user(opt);
+            state[s.key] = opt;
+            stepIndex++;
+            askNext();
+          };
+          div.appendChild(btn);
+        });
+        qArea.appendChild(div);
+      } else if (s.type === 'number') {
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+        
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'number-input';
+        input.placeholder = 'Enter a number';
+        input.id = 'num_input';
+        currentInput = input;
+        
+        const btn = document.createElement('button');
+        btn.className = 'submit-btn';
+        btn.textContent = 'Next';
+        btn.onclick = () => handleNumberInput(s, input);
+        
+        // Enter key support
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            handleNumberInput(s, input);
+          }
+        });
+        
+        inputGroup.appendChild(input);
+        inputGroup.appendChild(btn);
+        qArea.appendChild(inputGroup);
+        
+        // Auto-focus input
+        setTimeout(() => input.focus(), 100);
+      }
+    }
+
+    function handleNumberInput(step, input) {
+      const v = input.value;
+      const numValue = Number(v || 0);
+      user(v || '0');
+      state[step.key] = numValue;
+      stepIndex++;
+      askNext();
+    }
+
+    async function sendToBackend() {
+      try {
+        const payload = {
+          Age: state.Age,
+          Num_of_sexual_partners: state.Num_of_sexual_partners,
+          First_sex_age: state.First_sex_age,
+          Num_of_pregnancies: state.Num_of_pregnancies,
+          Smokes_years: state.Smokes_years,
+          Hormonal_contraceptives: state.Hormonal_contraceptives,
+          Hormonal_contraceptives_years: state.Hormonal_contraceptives_years,
+          STDs_HIV: state.STDs_HIV,
+          Pain_during_intercourse: state.Pain_during_intercourse,
+          Vaginal_discharge_type: state.Vaginal_discharge_type,
+          Vaginal_discharge_color: state.Vaginal_discharge_color,
+          Vaginal_bleeding_timing: state.Vaginal_bleeding_timing
+        };
+
+        const resp = await fetch('/predict', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        qArea.innerHTML = '';
+
+        if (resp.ok) {
+          const riskClass = `risk-${data.risk_bucket.toLowerCase()}`;
+          const probPercent = data.probability_percent || (data.probability * 100).toFixed(1);
+          
+          const resultHTML = `
+            <div style="text-align: center;">
+              <h3 style="margin-bottom: 15px;">Risk Assessment Result</h3>
+              <div class="risk-badge ${riskClass}" style="background: ${data.risk_color || '#6b7280'};">
+                ${data.risk_bucket} Risk
+              </div>
+              <div style="margin: 20px 0;">
+                <div style="font-size: 36px; font-weight: bold; color: ${data.risk_color || '#6b7280'};">
+                  ${probPercent}%
+                </div>
+                <div style="color: #6b7280; font-size: 14px;">Probability</div>
+              </div>
+              <div class="probability-gauge">
+                <div class="probability-fill" style="width: ${probPercent}%; background: ${data.risk_color || '#6b7280'};">
+                  ${probPercent >= 10 ? probPercent + '%' : ''}
+                </div>
+              </div>
+              <p style="margin-top: 20px; line-height: 1.6; color: #374151;">
+                ${data.advice}
+              </p>
+              <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                Label: ${data.label || 'N/A'} | Confidence: ${data.confidence || 'N/A'}
+              </p>
+              <button class="explain-btn" onclick="explainPrediction()">Why this prediction?</button>
+            </div>
+          `;
+          
+          bot(resultHTML, true);
+        } else {
+          bot("Error: " + (data.detail || JSON.stringify(data)));
+        }
+      } catch (err) {
+        qArea.innerHTML = '';
+        bot("Network or server error: " + err.message);
+      }
+    }
+
+    async function explainPrediction() {
+      try {
+        const payload = {
+          Age: state.Age,
+          Num_of_sexual_partners: state.Num_of_sexual_partners,
+          First_sex_age: state.First_sex_age,
+          Num_of_pregnancies: state.Num_of_pregnancies,
+          Smokes_years: state.Smokes_years,
+          Hormonal_contraceptives: state.Hormonal_contraceptives,
+          Hormonal_contraceptives_years: state.Hormonal_contraceptives_years,
+          STDs_HIV: state.STDs_HIV,
+          Pain_during_intercourse: state.Pain_during_intercourse,
+          Vaginal_discharge_type: state.Vaginal_discharge_type,
+          Vaginal_discharge_color: state.Vaginal_discharge_color,
+          Vaginal_bleeding_timing: state.Vaginal_bleeding_timing
+        };
+
+        const resp = await fetch('/explain', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+          let explainHTML = '<h4>Feature Importance:</h4><ul style="text-align: left; margin-top: 10px;">';
+          const features = Object.entries(data.feature_importance || {})
+            .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+            .slice(0, 5);
+          
+          features.forEach(([feature, importance]) => {
+            const sign = importance > 0 ? '+' : '';
+            explainHTML += `<li style="margin: 8px 0;">${feature}: ${sign}${importance.toFixed(4)}</li>`;
+          });
+          explainHTML += '</ul>';
+          bot(explainHTML, true);
+        } else {
+          bot("Explanation unavailable: " + (data.detail || "SHAP not configured"));
+        }
+      } catch (err) {
+        bot("Error getting explanation: " + err.message);
+      }
+    }
+
+    // Start conversation
+    bot("Hello! I'm here to help assess your cervical health risk. Let's start with a few questions.");
+    askNext();
   </script>
 </body>
 </html>

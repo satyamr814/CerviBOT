@@ -54,7 +54,24 @@ Run with: `docker-compose up`
 
 ## Platform-Specific Deployments
 
-### 1. Railway
+### 1. Render (Recommended - FREE!)
+
+**Best for:** Free hosting, easy setup, perfect for demos and portfolios
+
+1. Sign up at [render.com](https://render.com) - **No credit card required!**
+2. Create a new Web Service
+3. Connect your GitHub repository
+4. Render will automatically detect the `render.yaml` configuration
+5. Select **Free** plan
+6. Deploy!
+
+The app will be available at `https://your-app-name.onrender.com`
+
+**Note:** Free tier services spin down after 15 minutes of inactivity (wakes up automatically when accessed).
+
+📖 **For detailed step-by-step instructions, see [RENDER_FREE_DEPLOYMENT.md](RENDER_FREE_DEPLOYMENT.md)**
+
+### 2. Railway (Alternative)
 
 1. Sign up at [railway.app](https://railway.app)
 2. Create a new project
@@ -64,15 +81,7 @@ Run with: `docker-compose up`
 
 The app will be available at `https://your-app-name.railway.app`
 
-### 2. Render
-
-1. Sign up at [render.com](https://render.com)
-2. Create a new Web Service
-3. Connect your GitHub repository
-4. Render will automatically detect the `render.yaml` configuration
-5. Deploy!
-
-The app will be available at `https://your-app-name.onrender.com`
+**Note:** Railway offers a free trial with $5 credits, then $1/month minimum.
 
 ### 3. Heroku
 
