@@ -195,6 +195,24 @@ async def startup_event():
     global model, model_path
     if model is None:
         logger.info("Model not loaded at import time. Attempting to load on startup...")
+        
+        # Debug: List directory contents
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        cwd = os.getcwd()
+        logger.info(f"Startup debug - App dir: {app_dir}, CWD: {cwd}")
+        
+        # Check if model_files directory exists and list contents
+        for check_dir in [os.path.join(app_dir, "model_files"), os.path.join(cwd, "model_files")]:
+            if os.path.exists(check_dir):
+                try:
+                    files = os.listdir(check_dir)
+                    logger.info(f"✓ Directory exists: {check_dir}")
+                    logger.info(f"  Files: {files}")
+                except Exception as e:
+                    logger.debug(f"Could not list {check_dir}: {e}")
+            else:
+                logger.debug(f"Directory does not exist: {check_dir}")
+        
         # Try to find and load the model again
         found_path = find_model_path()
         if found_path and os.path.exists(found_path):
@@ -213,6 +231,26 @@ async def startup_event():
                 logger.error("  3. XGBoost version mismatch")
         else:
             logger.warning("Startup: Model file not found. Use /upload-model to upload one.")
+            logger.warning(f"Current working directory: {cwd}")
+            logger.warning(f"App directory: {app_dir}")
+            # Try to find any .pkl file as last resort
+            logger.info("Attempting to find any .pkl file in common locations...")
+            for search_dir in [app_dir, cwd, os.path.join(cwd, "model_files"), os.path.join(app_dir, "model_files")]:
+                if os.path.exists(search_dir):
+                    try:
+                        for root, dirs, files in os.walk(search_dir):
+                            for file in files:
+                                if file.endswith(".pkl") and "cervical" in file.lower():
+                                    potential_path = os.path.join(root, file)
+                                    logger.info(f"Found potential model: {potential_path}")
+                                    loaded_model, loaded_path = try_load_model(potential_path)
+                                    if loaded_model is not None:
+                                        model = loaded_model
+                                        model_path = loaded_path
+                                        logger.info(f"✓ Successfully loaded model from: {loaded_path}")
+                                        return
+                    except Exception as e:
+                        logger.debug(f"Error searching {search_dir}: {e}")
     else:
         logger.info(f"Model already loaded from: {model_path}")
 
