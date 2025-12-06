@@ -41,9 +41,10 @@ uvicorn_log.txt
 .DS_Store
 Thumbs.db
 
-# Model files (keep backend/*.pkl but ignore others)
+# Model files (keep model_files/*.pkl and backend/*.pkl but ignore others)
 *.pkl
 !backend/*.pkl
+!model_files/*.pkl
 
 # Test files
 test_*.py
