@@ -289,6 +289,112 @@ class UserOptions(BaseModel):
 
 
 # ---------- Helpers ----------
+def calculate_rule_based_risk(data: dict) -> float:
+    """
+    Rule-based risk calculator as fallback when model predictions are too low.
+    Scores based on known medical risk factors for cervical cancer.
+    Returns probability between 0 and 1.
+    """
+    risk_score = 0.0
+    
+    # Age factor (risk increases with age, especially 35+)
+    age = data.get('Age', 30)
+    if age >= 45:
+        risk_score += 0.25
+    elif age >= 35:
+        risk_score += 0.15
+    elif age >= 25:
+        risk_score += 0.05
+    
+    # Number of sexual partners (more partners = higher risk)
+    partners = data.get('Num_of_sexual_partners', 0)
+    if partners >= 8:
+        risk_score += 0.20
+    elif partners >= 5:
+        risk_score += 0.15
+    elif partners >= 3:
+        risk_score += 0.10
+    elif partners >= 2:
+        risk_score += 0.05
+    
+    # Early first sexual intercourse (risk factor)
+    first_sex = data.get('First_sex_age', 18)
+    if first_sex <= 14:
+        risk_score += 0.15
+    elif first_sex <= 16:
+        risk_score += 0.10
+    elif first_sex <= 18:
+        risk_score += 0.05
+    
+    # Number of pregnancies
+    pregnancies = data.get('Num_of_pregnancies', 0)
+    if pregnancies >= 5:
+        risk_score += 0.10
+    elif pregnancies >= 3:
+        risk_score += 0.05
+    
+    # Smoking (years)
+    smokes_years = data.get('Smokes_years', 0.0)
+    if smokes_years >= 20:
+        risk_score += 0.15
+    elif smokes_years >= 10:
+        risk_score += 0.10
+    elif smokes_years >= 5:
+        risk_score += 0.05
+    
+    # Hormonal contraceptives (long-term use)
+    hormonal = str(data.get('Hormonal_contraceptives', 'No')).lower()
+    hormonal_years = data.get('Hormonal_contraceptives_years', 0.0)
+    if hormonal in ['yes', '1', 'true'] and hormonal_years >= 20:
+        risk_score += 0.10
+    elif hormonal in ['yes', '1', 'true'] and hormonal_years >= 10:
+        risk_score += 0.05
+    
+    # HIV status (major risk factor)
+    hiv = str(data.get('STDs_HIV', 'No')).lower()
+    if hiv in ['yes', '1', 'true', 'positive']:
+        risk_score += 0.30  # Major risk factor
+    
+    # Pain during intercourse (symptom)
+    pain = str(data.get('Pain_during_intercourse', 'No')).lower()
+    if pain in ['yes', '1', 'true']:
+        risk_score += 0.10
+    
+    # Vaginal discharge type (bloody is concerning)
+    discharge_type = str(data.get('Vaginal_discharge_type', 'None')).lower()
+    if 'bloody' in discharge_type:
+        risk_score += 0.15
+    elif discharge_type in ['watery', 'thick']:
+        risk_score += 0.05
+    
+    # Vaginal discharge color (bloody is concerning)
+    discharge_color = str(data.get('Vaginal_discharge_color', 'normal')).lower()
+    if 'bloody' in discharge_color:
+        risk_score += 0.15
+    elif discharge_color in ['pink']:
+        risk_score += 0.05
+    
+    # Vaginal bleeding timing (concerning symptoms)
+    bleeding = str(data.get('Vaginal_bleeding_timing', 'None')).lower()
+    if 'after sex' in bleeding:
+        risk_score += 0.20  # Very concerning
+    elif 'between periods' in bleeding or 'after menopause' in bleeding:
+        risk_score += 0.10
+    
+    # Normalize to probability (0 to 1) with some smoothing
+    # Cap at 0.95 to leave room for extreme cases
+    probability = min(risk_score, 0.95)
+    
+    # Apply sigmoid-like transformation for better distribution
+    # This ensures even low scores get some probability
+    if probability < 0.1:
+        probability = probability * 2  # Boost very low scores
+    elif probability < 0.3:
+        probability = 0.1 + (probability - 0.1) * 1.5  # Moderate boost
+    
+    return min(probability, 0.95)
+
+
 def risk_bucket(proba: float) -> str:
     """Categorize risk based on probability."""
     if proba < 0.33:
@@ -451,13 +557,35 @@ def predict(options: UserOptions) -> Dict[str, Any]:
         X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
         
         if hasattr(model, "predict_proba"):
-            proba = float(model.predict_proba(X_ordered)[0][1])
+            model_proba = float(model.predict_proba(X_ordered)[0][1])
             prob_source = "predict_proba"
         else:
             X_ordered = X[[col for col in FEATURE_ORDER if col in X.columns]]
             pred = model.predict(X_ordered)[0]
-            proba = float(pred)
+            model_proba = float(pred)
             prob_source = "predict (fallback)"
+        
+        # FIX: If model prediction is suspiciously low (< 0.1), use rule-based fallback
+        # This ensures extreme cases get appropriate risk levels
+        if model_proba < 0.1:
+            logger.warning(f"Model prediction too low ({model_proba:.4f}), using rule-based fallback")
+            rule_based_proba = calculate_rule_based_risk(options.dict())
+            
+            # Use the higher of the two probabilities, or blend them
+            # This ensures we don't miss high-risk cases
+            if rule_based_proba > 0.3:
+                # If rule-based suggests medium/high risk, use it
+                proba = rule_based_proba
+                prob_source = "rule_based_fallback (model was too conservative)"
+                logger.info(f"Using rule-based probability: {proba:.4f} (model was {model_proba:.4f})")
+            else:
+                # If both are low, use a blend (weighted towards rule-based)
+                proba = (model_proba * 0.3) + (rule_based_proba * 0.7)
+                prob_source = "blended (model + rule_based)"
+                logger.info(f"Blended probability: {proba:.4f} (model: {model_proba:.4f}, rule-based: {rule_based_proba:.4f})")
+        else:
+            # Model prediction is reasonable, use it
+            proba = model_proba
     except AttributeError as e:
         if "_name_to_fitted_passthrough" in str(e) or "ColumnTransformer" in str(e):
             logger.error("scikit-learn version mismatch! Model was trained with a different version.")
