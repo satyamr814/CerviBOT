@@ -31,9 +31,12 @@ def find_model_path():
     cwd = os.getcwd()
     
     possible_paths = [
-        # New model location (primary)
+        # New model location (primary) - relative to app.py
         os.path.join(app_dir, "model_files", "cervical_cancer_model.pkl"),
+        # Current working directory (Render uses rootDir: cerviBOT)
         os.path.join(cwd, "model_files", "cervical_cancer_model.pkl"),
+        # Simple relative path from cwd
+        os.path.join(cwd, "cervical_cancer_model.pkl"),
         # If app.py is in cerviBOT subdirectory
         os.path.join(app_dir, "..", "model_files", "cervical_cancer_model.pkl"),
         os.path.join(cwd, "cerviBOT", "model_files", "cervical_cancer_model.pkl"),
@@ -49,7 +52,7 @@ def find_model_path():
         os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
         # Also try directly in app_dir
         os.path.join(app_dir, "xgb_cervical_pipeline.pkl"),
-        # Render deployment paths
+        # Render deployment paths (rootDir is cerviBOT, so cwd should be cerviBOT)
         os.path.join(cwd, "cerviBOT", "model_files", "cervical_cancer_model.pkl"),
         os.path.join(cwd, "cerviBOT", "backend", "xgb_cervical_pipeline.pkl"),
     ]
