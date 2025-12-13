@@ -890,6 +890,350 @@ def example_profiles() -> Dict[str, Any]:
     }
 
 
+# ---------- New Feature Endpoints ----------
+
+@app.post("/save-result")
+async def save_result(result_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Save assessment result to history (in-memory storage for demo, use database in production)."""
+    try:
+        import json
+        from datetime import datetime
+        
+        # In production, use a database. For now, save to a JSON file
+        history_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.json")
+        
+        # Load existing history
+        history = []
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, "r", encoding="utf-8") as f:
+                    history = json.load(f)
+            except:
+                history = []
+        
+        # Add new result with timestamp
+        result_data["timestamp"] = datetime.now().isoformat()
+        result_data["id"] = len(history) + 1
+        history.append(result_data)
+        
+        # Keep only last 100 results
+        history = history[-100:]
+        
+        # Save back
+        with open(history_file, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2)
+        
+        return {"message": "Result saved successfully", "id": result_data["id"]}
+    except Exception as e:
+        logger.exception("Failed to save result")
+        raise HTTPException(status_code=500, detail=f"Failed to save result: {str(e)}")
+
+
+@app.get("/history")
+def get_history(limit: int = 10) -> Dict[str, Any]:
+    """Get assessment history."""
+    try:
+        import json
+        history_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.json")
+        
+        if not os.path.exists(history_file):
+            return {"history": [], "count": 0}
+        
+        with open(history_file, "r", encoding="utf-8") as f:
+            history = json.load(f)
+        
+        # Return most recent results
+        history = sorted(history, key=lambda x: x.get("timestamp", ""), reverse=True)[:limit]
+        
+        return {"history": history, "count": len(history)}
+    except Exception as e:
+        logger.exception("Failed to load history")
+        return {"history": [], "count": 0, "error": str(e)}
+
+
+@app.post("/generate-pdf")
+async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
+    """Generate PDF report for assessment result."""
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.units import inch
+        from datetime import datetime
+        import tempfile
+        
+        # Create temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        temp_path = temp_file.name
+        temp_file.close()
+        
+        # Create PDF
+        doc = SimpleDocTemplate(temp_path, pagesize=letter)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#667eea'),
+            spaceAfter=30,
+            alignment=1  # Center
+        )
+        story.append(Paragraph("Cervical Health Risk Assessment Report", title_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Date
+        date_str = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+        story.append(Paragraph(f"<i>Generated on: {date_str}</i>", styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Risk Level
+        risk_level = result_data.get("risk_bucket", "Unknown")
+        risk_color = result_data.get("risk_color", "#6b7280")
+        prob_percent = result_data.get("probability_percent", 0)
+        
+        risk_style = ParagraphStyle(
+            'RiskStyle',
+            parent=styles['Heading2'],
+            fontSize=18,
+            textColor=colors.HexColor(risk_color),
+            spaceAfter=20
+        )
+        story.append(Paragraph(f"Risk Level: {risk_level}", risk_style))
+        story.append(Paragraph(f"Probability: {prob_percent}%", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Advice
+        advice = result_data.get("advice", "")
+        story.append(Paragraph("<b>Recommendation:</b>", styles['Heading3']))
+        story.append(Paragraph(advice, styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+        
+        # User Input Data
+        story.append(Paragraph("<b>Assessment Details:</b>", styles['Heading3']))
+        data = result_data.get("input_data", {})
+        table_data = [["Field", "Value"]]
+        for key, value in data.items():
+            if key not in ["timestamp", "id"]:
+                table_data.append([key.replace("_", " ").title(), str(value)])
+        
+        table = Table(table_data, colWidths=[3*inch, 3*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Disclaimer
+        disclaimer = (
+            "<b>Disclaimer:</b><br/>"
+            "This assessment is for informational purposes only and should not replace "
+            "professional medical advice, diagnosis, or treatment. Always seek the advice "
+            "of your physician or other qualified health provider with any questions you "
+            "may have regarding a medical condition."
+        )
+        story.append(Paragraph(disclaimer, styles['Normal']))
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Read PDF and return as base64
+        with open(temp_path, "rb") as f:
+            pdf_bytes = f.read()
+        
+        # Clean up
+        os.unlink(temp_path)
+        
+        import base64
+        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        return JSONResponse({
+            "pdf_base64": pdf_base64,
+            "filename": f"cervical_health_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        })
+    except Exception as e:
+        logger.exception("PDF generation failed")
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+
+@app.post("/set-reminder")
+async def set_reminder(reminder_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Set a reminder for follow-up screening."""
+    try:
+        import json
+        from datetime import datetime
+        
+        reminders_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reminders.json")
+        
+        reminders = []
+        if os.path.exists(reminders_file):
+            try:
+                with open(reminders_file, "r", encoding="utf-8") as f:
+                    reminders = json.load(f)
+            except:
+                reminders = []
+        
+        reminder_data["id"] = len(reminders) + 1
+        reminder_data["created_at"] = datetime.now().isoformat()
+        reminders.append(reminder_data)
+        
+        # Keep only last 50 reminders
+        reminders = reminders[-50:]
+        
+        with open(reminders_file, "w", encoding="utf-8") as f:
+            json.dump(reminders, f, indent=2)
+        
+        return {"message": "Reminder set successfully", "id": reminder_data["id"]}
+    except Exception as e:
+        logger.exception("Failed to set reminder")
+        raise HTTPException(status_code=500, detail=f"Failed to set reminder: {str(e)}")
+
+
+@app.get("/reminders")
+def get_reminders() -> Dict[str, Any]:
+    """Get all reminders."""
+    try:
+        import json
+        from datetime import datetime
+        
+        reminders_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reminders.json")
+        
+        if not os.path.exists(reminders_file):
+            return {"reminders": [], "count": 0}
+        
+        with open(reminders_file, "r", encoding="utf-8") as f:
+            reminders = json.load(f)
+        
+        # Filter out past reminders if needed
+        current_time = datetime.now()
+        active_reminders = [
+            r for r in reminders
+            if datetime.fromisoformat(r.get("reminder_date", "2000-01-01")) >= current_time
+        ]
+        
+        return {"reminders": active_reminders, "count": len(active_reminders)}
+    except Exception as e:
+        logger.exception("Failed to load reminders")
+        return {"reminders": [], "count": 0, "error": str(e)}
+
+
+@app.get("/doctors")
+def find_doctors(lat: Optional[float] = None, lon: Optional[float] = None, city: Optional[str] = None) -> Dict[str, Any]:
+    """Find doctors/hospitals (mock data for demo, integrate with real API in production)."""
+    # In production, integrate with Google Places API or similar
+    # For now, return sample data
+    sample_doctors = [
+        {
+            "id": 1,
+            "name": "Dr. Sarah Johnson",
+            "specialty": "Gynecologist",
+            "hospital": "City General Hospital",
+            "address": "123 Medical Center Dr, City, State 12345",
+            "phone": "(555) 123-4567",
+            "rating": 4.8,
+            "distance": "2.5 miles" if lat and lon else None
+        },
+        {
+            "id": 2,
+            "name": "Dr. Maria Garcia",
+            "specialty": "Gynecologic Oncologist",
+            "hospital": "Regional Medical Center",
+            "address": "456 Health Blvd, City, State 12345",
+            "phone": "(555) 234-5678",
+            "rating": 4.9,
+            "distance": "5.1 miles" if lat and lon else None
+        },
+        {
+            "id": 3,
+            "name": "Dr. Priya Patel",
+            "specialty": "Gynecologist",
+            "hospital": "Community Health Clinic",
+            "address": "789 Wellness Ave, City, State 12345",
+            "phone": "(555) 345-6789",
+            "rating": 4.7,
+            "distance": "1.8 miles" if lat and lon else None
+        }
+    ]
+    
+    # Filter by city if provided
+    if city:
+        sample_doctors = [d for d in sample_doctors if city.lower() in d["address"].lower()]
+    
+    return {"doctors": sample_doctors, "count": len(sample_doctors)}
+
+
+@app.get("/educational-content")
+def get_educational_content(category: Optional[str] = None) -> Dict[str, Any]:
+    """Get educational content about cervical health."""
+    content = {
+        "prevention": {
+            "title": "Prevention Tips",
+            "articles": [
+                {
+                    "title": "HPV Vaccination",
+                    "content": "HPV vaccination is recommended for adolescents and young adults to prevent HPV infection, which is the leading cause of cervical cancer. The vaccine is most effective when given before exposure to HPV.",
+                    "link": "https://www.cdc.gov/hpv/parents/vaccine.html"
+                },
+                {
+                    "title": "Regular Screening",
+                    "content": "Regular cervical cancer screening (Pap tests and HPV tests) can detect precancerous changes early, when they're easier to treat. Follow your healthcare provider's recommendations for screening frequency.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/prevention-early-detection.html"
+                }
+            ]
+        },
+        "symptoms": {
+            "title": "Symptoms to Watch For",
+            "articles": [
+                {
+                    "title": "Early Stage Symptoms",
+                    "content": "Early cervical cancer may not cause symptoms. As it progresses, symptoms may include abnormal vaginal bleeding, unusual discharge, pain during intercourse, and pelvic pain.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/detection-diagnosis-staging/signs-symptoms.html"
+                }
+            ]
+        },
+        "treatment": {
+            "title": "Treatment Options",
+            "articles": [
+                {
+                    "title": "Treatment Overview",
+                    "content": "Treatment for cervical cancer depends on the stage, type, and your overall health. Options may include surgery, radiation therapy, chemotherapy, or a combination of these.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/treating.html"
+                }
+            ]
+        },
+        "general": {
+            "title": "General Information",
+            "articles": [
+                {
+                    "title": "What is Cervical Cancer?",
+                    "content": "Cervical cancer is a type of cancer that occurs in the cells of the cervix, the lower part of the uterus. Most cases are caused by persistent infection with certain types of human papillomavirus (HPV).",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/about/what-is-cervical-cancer.html"
+                },
+                {
+                    "title": "Risk Factors",
+                    "content": "Risk factors include HPV infection, smoking, weakened immune system, long-term use of birth control pills, having multiple sexual partners, and early age at first sexual intercourse.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/causes-risks-prevention/risk-factors.html"
+                }
+            ]
+        }
+    }
+    
+    if category and category in content:
+        return {"category": category, "content": content[category]}
+    
+    return {"categories": list(content.keys()), "all_content": content}
+
+
 @app.post("/upload-model")
 async def upload_model(file: UploadFile = File(...)) -> Dict[str, Any]:
     """Upload a joblib model (.pkl/.joblib). Saves next to this app and loads it."""

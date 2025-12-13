@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cervical Health Risk Assessment Chatbot</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Noto Sans Devanagari', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 800px;
+      height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+
+    .lang-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid white;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .lang-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8f9fa;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bot-message {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .bot-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .bot-text {
+      background: white;
+      padding: 12px 16px;
+      border-radius: 18px;
+      max-width: 70%;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      line-height: 1.5;
+    }
+
+    .user-message {
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
+    .user-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 18px;
+      max-width: 70%;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .result-box {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+
+    .risk-low { background: #10b981; color: white; }
+    .risk-medium { background: #f59e0b; color: white; }
+    .risk-high { background: #ef4444; color: white; }
+
+    .probability-gauge {
+      width: 100%;
+      height: 30px;
+      background: #e5e7eb;
+      border-radius: 15px;
+      overflow: hidden;
+      margin: 15px 0;
+      position: relative;
+    }
+
+    .probability-fill {
+      height: 100%;
+      transition: width 0.5s ease;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .question-area {
+      padding: 20px;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .options-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .option-btn {
+      padding: 12px 20px;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .option-btn:hover {
+      background: #667eea;
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .number-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 25px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .number-input:focus {
+      border-color: #667eea;
+    }
+
+    .submit-btn {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.2s;
+    }
+
+    .submit-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .submit-btn:active {
+      transform: scale(0.95);
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .explain-btn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.3s;
+    }
+
+    .explain-btn:hover {
+      background: #4b5563;
+    }
+
+    .progress-indicator {
+      text-align: center;
+      color: #6b7280;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <button class="lang-toggle" id="langToggle">हिंदी</button>
+      <h1 id="headerTitle">🏥 Cervical Health Risk Assessment</h1>
+      <p id="headerSubtitle">Answer a few questions to assess your risk level</p>
+    </div>
+
+    <div class="chat-container" id="conversation"></div>
+
+    <div class="question-area" id="question-area"></div>
+  </div>
+
+  <script>
+    // Translations
+    const translations = {
+      en: {
+        title: '🏥 Cervical Health Risk Assessment',
+        subtitle: 'Answer a few questions to assess your risk level',
+        langButton: 'हिंदी',
+        hello: "Hello! I'm here to help assess your cervical health risk. Let's start with a few questions.",
+        analyzing: "Thanks for your answers! Analyzing your risk...",
+        riskResult: 'Risk Assessment Result',
+        probability: 'Probability',
+        label: 'Label',
+        confidence: 'Confidence',
+        whyPrediction: 'Why this prediction?',
+        next: 'Next',
+        questionOf: (c, t) => `Question ${c} of ${t}`,
+        questions: [
+          { key: 'Age', text: 'What is your age?' },
+          { key: 'Num_of_sexual_partners', text: 'How many sexual partners have you had?' },
+          { key: 'First_sex_age', text: 'At what age did you first have sexual intercourse?' },
+          { key: 'Num_of_pregnancies', text: 'How many pregnancies have you had?' },
+          { key: 'Smokes_years', text: 'How many years have you been smoking? (Enter 0 if you don\'t smoke)' },
+          { key: 'Hormonal_contraceptives', text: 'Are you currently using hormonal contraceptives?', options: ['Yes', 'No'] },
+          { key: 'Hormonal_contraceptives_years', text: 'If yes, for how many years? (Enter 0 if not applicable)', conditional: 'Hormonal_contraceptives', conditionalValue: 'Yes' },
+          { key: 'STDs_HIV', text: 'What is your HIV status?', options: ['No', 'Yes'] },
+          { key: 'Pain_during_intercourse', text: 'Do you experience pain during intercourse?', options: ['Yes', 'No'] },
+          { key: 'Vaginal_discharge_type', text: 'What type of vaginal discharge do you experience?', options: ['None', 'watery', 'thick', 'bloody'] },
+          { key: 'Vaginal_discharge_color', text: 'What color is your vaginal discharge?', options: ['normal', 'pink', 'pale', 'bloody'] },
+          { key: 'Vaginal_bleeding_timing', text: 'When do you experience abnormal vaginal bleeding?', options: ['None', 'Between periods', 'After sex', 'After menopause'] }
+        ],
+        riskLow: 'Low Risk',
+        riskMedium: 'Medium Risk',
+        riskHigh: 'High Risk',
+        adviceLow: 'Low risk — routine screening as per local guidelines is recommended.',
+        adviceMedium: 'Medium risk — consider scheduling a clinical check-up and follow-up screening.',
+        adviceHigh: 'High risk — seek urgent clinical evaluation and further diagnostic testing.',
+        enterNumber: 'Enter a number'
+      },
+      hi: {
+        title: '🏥 गर्भाशय ग्रीवा स्वास्थ्य जोखिम मूल्यांकन',
+        subtitle: 'अपने जोखिम स्तर का आकलन करने के लिए कुछ प्रश्नों के उत्तर दें',
+        langButton: 'English',
+        hello: 'नमस्ते! मैं आपके गर्भाशय ग्रीवा स्वास्थ्य जोखिम का आकलन करने में मदद करने के लिए यहां हूं। आइए कुछ प्रश्नों से शुरू करें।',
+        analyzing: 'आपके उत्तरों के लिए धन्यवाद! आपके जोखिम का विश्लेषण किया जा रहा है...',
+        riskResult: 'जोखिम मूल्यांकन परिणाम',
+        probability: 'संभावना',
+        label: 'लेबल',
+        confidence: 'आत्मविश्वास',
+        whyPrediction: 'यह भविष्यवाणी क्यों?',
+        next: 'अगला',
+        questionOf: (c, t) => `प्रश्न ${c} में से ${t}`,
+        questions: [
+          { key: 'Age', text: 'आपकी उम्र क्या है?' },
+          { key: 'Num_of_sexual_partners', text: 'आपके कितने यौन साथी रहे हैं?' },
+          { key: 'First_sex_age', text: 'आपने पहली बार किस उम्र में यौन संबंध बनाए?' },
+          { key: 'Num_of_pregnancies', text: 'आपकी कितनी गर्भावस्थाएं रही हैं?' },
+          { key: 'Smokes_years', text: 'आप कितने वर्षों से धूम्रपान कर रहे हैं? (यदि आप धूम्रपान नहीं करते हैं तो 0 दर्ज करें)' },
+          { key: 'Hormonal_contraceptives', text: 'क्या आप वर्तमान में हार्मोनल गर्भनिरोधक उपयोग कर रहे हैं?', options: ['हाँ', 'नहीं'] },
+          { key: 'Hormonal_contraceptives_years', text: 'यदि हाँ, तो कितने वर्षों से? (यदि लागू नहीं होता तो 0 दर्ज करें)', conditional: 'Hormonal_contraceptives', conditionalValue: 'हाँ' },
+          { key: 'STDs_HIV', text: 'आपकी HIV स्थिति क्या है?', options: ['नहीं', 'हाँ'] },
+          { key: 'Pain_during_intercourse', text: 'क्या आपको संभोग के दौरान दर्द होता है?', options: ['हाँ', 'नहीं'] },
+          { key: 'Vaginal_discharge_type', text: 'आपको किस प्रकार का योनि स्राव होता है?', options: ['कोई नहीं', 'पानी जैसा', 'गाढ़ा', 'खूनी'] },
+          { key: 'Vaginal_discharge_color', text: 'आपके योनि स्राव का रंग क्या है?', options: ['सामान्य', 'गुलाबी', 'पीला', 'खूनी'] },
+          { key: 'Vaginal_bleeding_timing', text: 'आपको असामान्य योनि रक्तस्राव कब होता है?', options: ['कोई नहीं', 'मासिक धर्म के बीच', 'संभोग के बाद', 'रजोनिवृत्ति के बाद'] }
+        ],
+        riskLow: 'कम जोखिम',
+        riskMedium: 'मध्यम जोखिम',
+        riskHigh: 'उच्च जोखिम',
+        adviceLow: 'कम जोखिम — स्थानीय दिशानिर्देशों के अनुसार नियमित जांच की सिफारिश की जाती है।',
+        adviceMedium: 'मध्यम जोखिम — नैदानिक जांच और अनुवर्ती जांच शेड्यूल करने पर विचार करें।',
+        adviceHigh: 'उच्च जोखिम — तत्काल नैदानिक मूल्यांकन और आगे की नैदानिक जांच कराएं।',
+        enterNumber: 'एक संख्या दर्ज करें'
+      }
+    };
+
+    // Option value mappings (Hindi to English)
+    const optionMapping = {
+      hi: {
+        'हाँ': 'Yes',
+        'नहीं': 'No',
+        'कोई नहीं': 'None',
+        'पानी जैसा': 'watery',
+        'गाढ़ा': 'thick',
+        'खूनी': 'bloody',
+        'सामान्य': 'normal',
+        'गुलाबी': 'pink',
+        'पीला': 'pale',
+        'मासिक धर्म के बीच': 'Between periods',
+        'संभोग के बाद': 'After sex',
+        'रजोनिवृत्ति के बाद': 'After menopause'
+      },
+      en: {}
+    };
+
+    let currentLang = 'en';
+    const state = {
+      Age: null,
+      Num_of_sexual_partners: null,
+      First_sex_age: null,
+      Num_of_pregnancies: null,
+      Smokes_years: 0,
+      Hormonal_contraceptives: 'No',
+      Hormonal_contraceptives_years: 0,
+      STDs_HIV: 'No',
+      Pain_during_intercourse: 'No',
+      Vaginal_discharge_type: 'None',
+      Vaginal_discharge_color: 'normal',
+      Vaginal_bleeding_timing: 'None'
+    };
+
+    const conversation = document.getElementById('conversation');
+    const qArea = document.getElementById('question-area');
+    const langToggle = document.getElementById('langToggle');
+    const headerTitle = document.getElementById('headerTitle');
+    const headerSubtitle = document.getElementById('headerSubtitle');
+
+    function t(key, ...args) {
+      const trans = translations[currentLang][key];
+      return typeof trans === 'function' ? trans(...args) : trans;
+    }
+
+    function switchLanguage() {
+      currentLang = currentLang === 'en' ? 'hi' : 'en';
+      langToggle.textContent = currentLang === 'en' ? 'हिंदी' : 'English';
+      headerTitle.textContent = t('title');
+      headerSubtitle.textContent = t('subtitle');
+      
+      // Clear and restart conversation
+      conversation.innerHTML = '';
+      qArea.innerHTML = '';
+      stepIndex = 0;
+      bot(t('hello'));
+      askNext();
+    }
+
+    langToggle.addEventListener('click', switchLanguage);
+
+    function bot(msg, isResult = false) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message bot-message';
+      
+      const avatar = document.createElement('div');
+      avatar.className = 'bot-avatar';
+      avatar.textContent = '🤖';
+      
+      const text = document.createElement('div');
+      text.className = 'bot-text';
+      text.innerHTML = msg;
+      
+      messageDiv.appendChild(avatar);
+      messageDiv.appendChild(text);
+      conversation.appendChild(messageDiv);
+      
+      if (isResult) {
+        const resultBox = document.createElement('div');
+        resultBox.className = 'result-box';
+        resultBox.innerHTML = msg;
+        text.innerHTML = '';
+        text.appendChild(resultBox);
+      }
+      
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function user(msg) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message user-message';
+      
+      const text = document.createElement('div');
+      text.className = 'user-text';
+      text.textContent = msg;
+      
+      messageDiv.appendChild(text);
+      conversation.appendChild(messageDiv);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    let stepIndex = 0;
+    let currentInput = null;
+
+    function askNext() {
+      const steps = t('questions');
+      if (stepIndex >= steps.length) {
+        bot(t('analyzing'));
+        qArea.innerHTML = '<div class="loading"></div>';
+        sendToBackend();
+        return;
+      }
+
+      const s = steps[stepIndex];
+      
+      // Skip conditional questions if condition not met
+      if (s.conditional) {
+        const conditionValue = s.conditionalValue;
+        const stateValue = state[s.conditional];
+        // Map Hindi value to English if needed
+        const mappedValue = currentLang === 'hi' && optionMapping.hi[stateValue] ? optionMapping.hi[stateValue] : stateValue;
+        const mappedCondition = currentLang === 'hi' && optionMapping.hi[conditionValue] ? optionMapping.hi[conditionValue] : conditionValue;
+        if (mappedValue !== mappedCondition) {
+          stepIndex++;
+          askNext();
+          return;
+        }
+      }
+
+      qArea.innerHTML = '';
+      
+      const questionContainer = document.createElement('div');
+      questionContainer.style.marginBottom = '15px';
+      
+      const questionText = document.createElement('div');
+      questionText.className = 'bot-text';
+      questionText.textContent = s.text;
+      questionText.style.marginBottom = '15px';
+      questionContainer.appendChild(questionText);
+      
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'progress-indicator';
+      progressDiv.textContent = t('questionOf', stepIndex + 1, steps.length);
+      questionContainer.appendChild(progressDiv);
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message bot-message';
+      const avatar = document.createElement('div');
+      avatar.className = 'bot-avatar';
+      avatar.textContent = '🤖';
+      messageDiv.appendChild(avatar);
+      messageDiv.appendChild(questionContainer);
+      conversation.appendChild(messageDiv);
+
+      if (s.options) {
+        const div = document.createElement('div');
+        div.className = 'options-container';
+        div.style.marginTop = '10px';
+        s.options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.textContent = opt;
+          btn.onclick = () => {
+            user(opt);
+            // Map Hindi option to English value for backend
+            const backendValue = currentLang === 'hi' && optionMapping.hi[opt] ? optionMapping.hi[opt] : opt;
+            state[s.key] = backendValue;
+            stepIndex++;
+            askNext();
+          };
+          div.appendChild(btn);
+        });
+        qArea.appendChild(div);
+      } else {
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+        inputGroup.style.marginTop = '10px';
+        
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'number-input';
+        input.placeholder = t('enterNumber');
+        input.id = 'num_input';
+        currentInput = input;
+        
+        const btn = document.createElement('button');
+        btn.className = 'submit-btn';
+        btn.textContent = t('next');
+        btn.onclick = () => {
+          const v = input.value;
+          const numValue = Number(v || 0);
+          user(v || '0');
+          state[s.key] = numValue;
+          stepIndex++;
+          askNext();
+        };
+        
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            btn.click();
+          }
+        });
+        
+        inputGroup.appendChild(input);
+        inputGroup.appendChild(btn);
+        qArea.appendChild(inputGroup);
+        setTimeout(() => input.focus(), 100);
+      }
+      
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    async function sendToBackend() {
+      try {
+        const payload = { ...state };
+        const resp = await fetch('/predict', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        qArea.innerHTML = '';
+
+        if (resp.ok) {
+          const riskClass = data.risk_bucket.toLowerCase();
+          const probPercent = data.probability_percent || (data.probability * 100).toFixed(1);
+          
+          const riskText = riskClass === 'low' ? t('riskLow') : riskClass === 'medium' ? t('riskMedium') : t('riskHigh');
+          const adviceText = riskClass === 'low' ? t('adviceLow') : riskClass === 'medium' ? t('adviceMedium') : t('adviceHigh');
+          
+          const resultHTML = `
+            <div style="text-align: center;">
+              <h3 style="margin-bottom: 15px;">${t('riskResult')}</h3>
+              <div class="risk-badge risk-${riskClass}" style="background: ${data.risk_color || '#6b7280'};">
+                ${riskText}
+              </div>
+              <div style="margin: 20px 0;">
+                <div style="font-size: 36px; font-weight: bold; color: ${data.risk_color || '#6b7280'};">
+                  ${probPercent}%
+                </div>
+                <div style="color: #6b7280; font-size: 14px;">${t('probability')}</div>
+              </div>
+              <div class="probability-gauge">
+                <div class="probability-fill" style="width: ${probPercent}%; background: ${data.risk_color || '#6b7280'};">
+                  ${probPercent >= 10 ? probPercent + '%' : ''}
+                </div>
+              </div>
+              <p style="margin-top: 20px; line-height: 1.6; color: #374151;">
+                ${adviceText}
+              </p>
+              <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                ${t('label')}: ${data.label || 'N/A'} | ${t('confidence')}: ${data.confidence || 'N/A'}
+              </p>
+              <button class="explain-btn" onclick="explainPrediction()">${t('whyPrediction')}</button>
+            </div>
+          `;
+          
+          bot(resultHTML, true);
+        } else {
+          bot("Error: " + (data.detail || JSON.stringify(data)));
+        }
+      } catch (err) {
+        qArea.innerHTML = '';
+        bot(t('errorNetwork', err.message));
+      }
+    }
+
+    async function explainPrediction() {
+      try {
+        const payload = { ...state };
+        const resp = await fetch('/explain', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+          const explanation = data.explanation || 'Explanation not available';
+          bot('<h4>Explanation:</h4><pre style="text-align: left; white-space: pre-wrap; margin-top: 10px;">' + explanation + '</pre>', true);
+        } else {
+          bot("Explanation unavailable: " + (data.detail || "Error occurred"));
+        }
+      } catch (err) {
+        bot(t('errorExplanation', err.message));
+      }
+    }
+
+    // Start conversation
+    bot(t('hello'));
+    askNext();
+  </script>
+</body>
+</html>
+
