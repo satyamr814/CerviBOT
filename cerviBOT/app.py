@@ -911,13 +911,14 @@ async def save_result(result_data: Dict[str, Any]) -> Dict[str, Any]:
             except:
                 history = []
         
-        # Add new result with timestamp
-        result_data["timestamp"] = datetime.now().isoformat()
-        result_data["id"] = len(history) + 1
-        history.append(result_data)
-        
-        # Keep only last 100 results
+        # Keep only last 100 results (truncate before assigning ID to avoid collisions)
         history = history[-100:]
+        
+        # Assign ID based on max existing ID to avoid collisions
+        max_id = max([item.get("id", 0) for item in history], default=0)
+        result_data["timestamp"] = datetime.now().isoformat()
+        result_data["id"] = max_id + 1
+        history.append(result_data)
         
         # Save back
         with open(history_file, "w", encoding="utf-8") as f:
@@ -954,6 +955,7 @@ def get_history(limit: int = 10) -> Dict[str, Any]:
 @app.post("/generate-pdf")
 async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
     """Generate PDF report for assessment result."""
+    temp_path = None
     try:
         from reportlab.lib.pagesizes import letter
         from reportlab.lib import colors
@@ -1051,9 +1053,6 @@ async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
         with open(temp_path, "rb") as f:
             pdf_bytes = f.read()
         
-        # Clean up
-        os.unlink(temp_path)
-        
         import base64
         pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
         
@@ -1064,6 +1063,13 @@ async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
     except Exception as e:
         logger.exception("PDF generation failed")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+    finally:
+        # Ensure temp file is always cleaned up, even if an exception occurs
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to cleanup temp file {temp_path}: {cleanup_error}")
 
 
 @app.post("/set-reminder")
@@ -1083,12 +1089,14 @@ async def set_reminder(reminder_data: Dict[str, Any]) -> Dict[str, Any]:
             except:
                 reminders = []
         
-        reminder_data["id"] = len(reminders) + 1
+        # Keep only last 50 reminders (truncate before assigning ID to avoid collisions)
+        reminders = reminders[-50:]
+        
+        # Assign ID based on max existing ID to avoid collisions
+        max_id = max([item.get("id", 0) for item in reminders], default=0)
+        reminder_data["id"] = max_id + 1
         reminder_data["created_at"] = datetime.now().isoformat()
         reminders.append(reminder_data)
-        
-        # Keep only last 50 reminders
-        reminders = reminders[-50:]
         
         with open(reminders_file, "w", encoding="utf-8") as f:
             json.dump(reminders, f, indent=2)
@@ -1272,6 +1280,115 @@ async def upload_model(file: UploadFile = File(...)) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("Upload failed")
         raise HTTPException(status_code=400, detail=f"Upload failed: {e}")
+
+
+# ---------- Profile Management Endpoints ----------
+
+@app.post("/profile")
+async def create_profile(profile_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create or update user profile."""
+    try:
+        import json
+        from datetime import datetime
+        
+        profiles_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles.json")
+        
+        profiles = {}
+        if os.path.exists(profiles_file):
+            try:
+                with open(profiles_file, "r", encoding="utf-8") as f:
+                    profiles = json.load(f)
+            except:
+                profiles = {}
+        
+        profile_id = profile_data.get("id") or profile_data.get("email") or f"user_{len(profiles) + 1}"
+        
+        if profile_id not in profiles:
+            profile_data["created_at"] = datetime.now().isoformat()
+        profile_data["updated_at"] = datetime.now().isoformat()
+        profile_data["id"] = profile_id
+        
+        profiles[profile_id] = profile_data
+        
+        with open(profiles_file, "w", encoding="utf-8") as f:
+            json.dump(profiles, f, indent=2)
+        
+        return {"message": "Profile saved successfully", "profile_id": profile_id, "profile": profile_data}
+    except Exception as e:
+        logger.exception("Failed to save profile")
+        raise HTTPException(status_code=500, detail=f"Failed to save profile: {str(e)}")
+
+
+@app.get("/profile/{profile_id}")
+def get_profile(profile_id: str) -> Dict[str, Any]:
+    """Get user profile by ID."""
+    try:
+        import json
+        profiles_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles.json")
+        
+        if not os.path.exists(profiles_file):
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        with open(profiles_file, "r", encoding="utf-8") as f:
+            profiles = json.load(f)
+        
+        if profile_id not in profiles:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        return {"profile": profiles[profile_id]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to load profile")
+        raise HTTPException(status_code=500, detail=f"Failed to load profile: {str(e)}")
+
+
+@app.get("/profiles")
+def list_profiles() -> Dict[str, Any]:
+    """List all profiles."""
+    try:
+        import json
+        profiles_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles.json")
+        
+        if not os.path.exists(profiles_file):
+            return {"profiles": [], "count": 0}
+        
+        with open(profiles_file, "r", encoding="utf-8") as f:
+            profiles = json.load(f)
+        
+        return {"profiles": list(profiles.values()), "count": len(profiles)}
+    except Exception as e:
+        logger.exception("Failed to load profiles")
+        return {"profiles": [], "count": 0, "error": str(e)}
+
+
+@app.delete("/profile/{profile_id}")
+def delete_profile(profile_id: str) -> Dict[str, Any]:
+    """Delete a user profile."""
+    try:
+        import json
+        profiles_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles.json")
+        
+        if not os.path.exists(profiles_file):
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        with open(profiles_file, "r", encoding="utf-8") as f:
+            profiles = json.load(f)
+        
+        if profile_id not in profiles:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        del profiles[profile_id]
+        
+        with open(profiles_file, "w", encoding="utf-8") as f:
+            json.dump(profiles, f, indent=2)
+        
+        return {"message": "Profile deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to delete profile")
+        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}")
 
 
 # ---------- Run server ----------
