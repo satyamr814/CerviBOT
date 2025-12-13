@@ -281,12 +281,111 @@
       font-size: 12px;
       margin-top: 10px;
     }
+
+    .voice-btn {
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 10px;
+      transition: all 0.3s;
+    }
+
+    .voice-btn:hover {
+      background: #5568d3;
+    }
+
+    .voice-btn.recording {
+      background: #ef4444;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .header-buttons {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid white;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #6b7280;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <button class="lang-toggle" id="langToggle">हिंदी</button>
+      <div class="header-buttons">
+        <button class="header-btn" onclick="showProfile()">👤 Profile</button>
+        <button class="header-btn" onclick="showHistory()">📋 History</button>
+      </div>
+      <select class="lang-toggle" id="langToggle" style="position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 14px;">
+        <option value="en">English</option>
+        <option value="hi">हिंदी (Hindi)</option>
+        <option value="ta">தமிழ் (Tamil)</option>
+        <option value="te">తెలుగు (Telugu)</option>
+        <option value="bn">বাংলা (Bengali)</option>
+        <option value="mr">मराठी (Marathi)</option>
+      </select>
       <h1 id="headerTitle">🏥 Cervical Health Risk Assessment</h1>
       <p id="headerSubtitle">Answer a few questions to assess your risk level</p>
     </div>
@@ -332,7 +431,9 @@
         adviceLow: 'Low risk — routine screening as per local guidelines is recommended.',
         adviceMedium: 'Medium risk — consider scheduling a clinical check-up and follow-up screening.',
         adviceHigh: 'High risk — seek urgent clinical evaluation and further diagnostic testing.',
-        enterNumber: 'Enter a number'
+        enterNumber: 'Enter a number',
+        saveResult: 'Save Result',
+        downloadPDF: 'Download PDF'
       },
       hi: {
         title: '🏥 गर्भाशय ग्रीवा स्वास्थ्य जोखिम मूल्यांकन',
@@ -367,7 +468,97 @@
         adviceLow: 'कम जोखिम — स्थानीय दिशानिर्देशों के अनुसार नियमित जांच की सिफारिश की जाती है।',
         adviceMedium: 'मध्यम जोखिम — नैदानिक जांच और अनुवर्ती जांच शेड्यूल करने पर विचार करें।',
         adviceHigh: 'उच्च जोखिम — तत्काल नैदानिक मूल्यांकन और आगे की नैदानिक जांच कराएं।',
-        enterNumber: 'एक संख्या दर्ज करें'
+        enterNumber: 'एक संख्या दर्ज करें',
+        saveResult: 'परिणाम सहेजें',
+        downloadPDF: 'PDF डाउनलोड करें'
+      },
+      ta: {
+        title: '🏥 கர்ப்பப்பை கழுத்து சுகாதார ஆபத்து மதிப்பீடு',
+        subtitle: 'உங்கள் ஆபத்து நிலையை மதிப்பிட சில கேள்விகளுக்கு பதிலளிக்கவும்',
+        hello: 'வணக்கம்! உங்கள் கர்ப்பப்பை கழுத்து சுகாதார ஆபத்தை மதிப்பிட நான் இங்கே இருக்கிறேன். சில கேள்விகளுடன் தொடங்குவோம்.',
+        analyzing: 'உங்கள் பதில்களுக்கு நன்றி! உங்கள் ஆபத்து பகுப்பாய்வு செய்யப்படுகிறது...',
+        riskResult: 'ஆபத்து மதிப்பீட்டு முடிவு',
+        probability: 'நிகழ்தகவு',
+        label: 'லேபிள்',
+        confidence: 'நம்பிக்கை',
+        whyPrediction: 'இந்த கணிப்பு ஏன்?',
+        next: 'அடுத்து',
+        questionOf: (c, t) => `கேள்வி ${c} / ${t}`,
+        riskLow: 'குறைந்த ஆபத்து',
+        riskMedium: 'நடுத்தர ஆபத்து',
+        riskHigh: 'உயர் ஆபத்து',
+        adviceLow: 'குறைந்த ஆபத்து — உள்ளூர் வழிகாட்டுதல்களின்படி வழக்கமான திரையிடல் பரிந்துரைக்கப்படுகிறது.',
+        adviceMedium: 'நடுத்தர ஆபத்து — மருத்துவ பரிசோதனை மற்றும் தொடர்ந்து திரையிடல் திட்டமிடுவதைக் கவனியுங்கள்.',
+        adviceHigh: 'உயர் ஆபத்து — அவசர மருத்துவ மதிப்பீடு மற்றும் மேலும் கண்டறியும் சோதனைகளை நாடுங்கள்.',
+        enterNumber: 'ஒரு எண்ணை உள்ளிடவும்',
+        saveResult: 'முடிவை சேமிக்கவும்',
+        downloadPDF: 'PDF பதிவிறக்க'
+      },
+      te: {
+        title: '🏥 గర్భాశయ మెడ ఆరోగ్య ప్రమాద అంచనా',
+        subtitle: 'మీ ప్రమాద స్థాయిని అంచనా వేయడానికి కొన్ని ప్రశ్నలకు సమాధానం ఇవ్వండి',
+        hello: 'నమస్కారం! మీ గర్భాశయ మెడ ఆరోగ్య ప్రమాదాన్ని అంచనా వేయడంలో సహాయం చేయడానికి నేను ఇక్కడ ఉన్నాను. కొన్ని ప్రశ్నలతో ప్రారంభిద్దాం.',
+        analyzing: 'మీ సమాధానాలకు ధన్యవాదాలు! మీ ప్రమాదం విశ్లేషించబడుతోంది...',
+        riskResult: 'ప్రమాద అంచనా ఫలితం',
+        probability: 'సంభావ్యత',
+        label: 'లేబుల్',
+        confidence: 'విశ్వాసం',
+        whyPrediction: 'ఈ అంచనా ఎందుకు?',
+        next: 'తర్వాత',
+        questionOf: (c, t) => `ప్రశ్న ${c} / ${t}`,
+        riskLow: 'తక్కువ ప్రమాదం',
+        riskMedium: 'మధ్యస్థ ప్రమాదం',
+        riskHigh: 'అధిక ప్రమాదం',
+        adviceLow: 'తక్కువ ప్రమాదం — స్థానిక మార్గదర్శకాల ప్రకారం రూటీన్ స్క్రీనింగ్ సిఫార్సు చేయబడింది.',
+        adviceMedium: 'మధ్యస్థ ప్రమాదం — క్లినికల్ చెక్-అప్ మరియు ఫాలో-అప్ స్క్రీనింగ్ షెడ్యూల్ చేయడాన్ని పరిగణించండి.',
+        adviceHigh: 'అధిక ప్రమాదం — అత్యవసర క్లినికల్ మూల్యాంకనం మరియు మరింత రోగనిర్ధారణ పరీక్షలను కోరండి.',
+        enterNumber: 'ఒక సంఖ్యను నమోదు చేయండి',
+        saveResult: 'ఫలితాన్ని సేవ్ చేయండి',
+        downloadPDF: 'PDF డౌన్‌లోడ్'
+      },
+      bn: {
+        title: '🏥 সার্ভিকাল স্বাস্থ্য ঝুঁকি মূল্যায়ন',
+        subtitle: 'আপনার ঝুঁকির স্তর মূল্যায়ন করতে কয়েকটি প্রশ্নের উত্তর দিন',
+        hello: 'নমস্কার! আমি আপনার সার্ভিকাল স্বাস্থ্য ঝুঁকি মূল্যায়ন করতে সাহায্য করতে এখানে আছি। কয়েকটি প্রশ্ন দিয়ে শুরু করি।',
+        analyzing: 'আপনার উত্তরগুলির জন্য ধন্যবাদ! আপনার ঝুঁকি বিশ্লেষণ করা হচ্ছে...',
+        riskResult: 'ঝুঁকি মূল্যায়ন ফলাফল',
+        probability: 'সম্ভাবনা',
+        label: 'লেবেল',
+        confidence: 'আত্মবিশ্বাস',
+        whyPrediction: 'এই পূর্বাভাস কেন?',
+        next: 'পরবর্তী',
+        questionOf: (c, t) => `প্রশ্ন ${c} / ${t}`,
+        riskLow: 'নিম্ন ঝুঁকি',
+        riskMedium: 'মাঝারি ঝুঁকি',
+        riskHigh: 'উচ্চ ঝুঁকি',
+        adviceLow: 'নিম্ন ঝুঁকি — স্থানীয় নির্দেশিকা অনুযায়ী নিয়মিত স্ক্রীনিং সুপারিশ করা হয়।',
+        adviceMedium: 'মাঝারি ঝুঁকি — ক্লিনিকাল চেক-আপ এবং ফলো-আপ স্ক্রীনিং নির্ধারণ করার কথা বিবেচনা করুন।',
+        adviceHigh: 'উচ্চ ঝুঁকি — জরুরি ক্লিনিকাল মূল্যায়ন এবং আরও ডায়াগনস্টিক পরীক্ষা চাই।',
+        enterNumber: 'একটি সংখ্যা লিখুন',
+        saveResult: 'ফলাফল সংরক্ষণ করুন',
+        downloadPDF: 'PDF ডাউনলোড'
+      },
+      mr: {
+        title: '🏥 गर्भाशय ग्रीवा आरोग्य जोखीम मूल्यांकन',
+        subtitle: 'आपल्या जोखीम पातळीचे मूल्यांकन करण्यासाठी काही प्रश्नांची उत्तरे द्या',
+        hello: 'नमस्कार! मी आपल्या गर्भाशय ग्रीवा आरोग्य जोखीमचे मूल्यांकन करण्यात मदत करण्यासाठी येथे आहे. चला काही प्रश्नांसह सुरुवात करूया.',
+        analyzing: 'आपल्या उत्तरांसाठी धन्यवाद! आपल्या जोखीमचे विश्लेषण केले जात आहे...',
+        riskResult: 'जोखीम मूल्यांकन परिणाम',
+        probability: 'संभाव्यता',
+        label: 'लेबल',
+        confidence: 'आत्मविश्वास',
+        whyPrediction: 'हे अंदाज का?',
+        next: 'पुढे',
+        questionOf: (c, t) => `प्रश्न ${c} / ${t}`,
+        riskLow: 'कमी जोखीम',
+        riskMedium: 'मध्यम जोखीम',
+        riskHigh: 'उच्च जोखीम',
+        adviceLow: 'कमी जोखीम — स्थानिक मार्गदर्शक तत्त्वांनुसार नियमित स्क्रीनिंग शिफारस केली जाते.',
+        adviceMedium: 'मध्यम जोखीम — क्लिनिकल तपासणी आणि फॉलो-अप स्क्रीनिंग शेड्यूल करण्याचा विचार करा.',
+        adviceHigh: 'उच्च जोखीम — तातडीने क्लिनिकल मूल्यांकन आणि पुढील निदान चाचण्या घ्या.',
+        enterNumber: 'एक संख्या प्रविष्ट करा',
+        saveResult: 'निकाल जतन करा',
+        downloadPDF: 'PDF डाउनलोड करा'
       }
     };
 
@@ -413,13 +604,35 @@
     const headerSubtitle = document.getElementById('headerSubtitle');
 
     function t(key, ...args) {
-      const trans = translations[currentLang][key];
+      const langDict = translations[currentLang] || translations['en'];
+      const trans = langDict[key];
+      if (trans === undefined) {
+        // Fallback to English if translation missing
+        return translations['en'][key] || key;
+      }
       return typeof trans === 'function' ? trans(...args) : trans;
     }
 
+    // Debounce function for performance
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // Optimized scroll with debounce
+    const optimizedScroll = debounce(() => {
+      optimizedScroll();
+    }, 50);
+
     function switchLanguage() {
-      currentLang = currentLang === 'en' ? 'hi' : 'en';
-      langToggle.textContent = currentLang === 'en' ? 'हिंदी' : 'English';
+      currentLang = langToggle.value;
       headerTitle.textContent = t('title');
       headerSubtitle.textContent = t('subtitle');
       
@@ -431,7 +644,7 @@
       askNext();
     }
 
-    langToggle.addEventListener('click', switchLanguage);
+    langToggle.addEventListener('change', switchLanguage);
 
     function bot(msg, isResult = false) {
       const messageDiv = document.createElement('div');
@@ -457,7 +670,7 @@
         text.appendChild(resultBox);
       }
       
-      conversation.scrollTop = conversation.scrollHeight;
+      optimizedScroll();
     }
 
     function user(msg) {
@@ -470,7 +683,7 @@
       
       messageDiv.appendChild(text);
       conversation.appendChild(messageDiv);
-      conversation.scrollTop = conversation.scrollHeight;
+      optimizedScroll();
     }
 
     let stepIndex = 0;
@@ -557,6 +770,13 @@
         input.id = 'num_input';
         currentInput = input;
         
+        // Add voice input button
+        const voiceBtn = document.createElement('button');
+        voiceBtn.className = 'voice-btn';
+        voiceBtn.innerHTML = '🎤';
+        voiceBtn.title = 'Voice Input';
+        voiceBtn.onclick = () => startVoiceInput(input);
+        
         const btn = document.createElement('button');
         btn.className = 'submit-btn';
         btn.textContent = t('next');
@@ -576,12 +796,13 @@
         });
         
         inputGroup.appendChild(input);
+        inputGroup.appendChild(voiceBtn);
         inputGroup.appendChild(btn);
         qArea.appendChild(inputGroup);
         setTimeout(() => input.focus(), 100);
       }
       
-      conversation.scrollTop = conversation.scrollHeight;
+      optimizedScroll();
     }
 
     async function sendToBackend() {
@@ -626,11 +847,20 @@
               <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
                 ${t('label')}: ${data.label || 'N/A'} | ${t('confidence')}: ${data.confidence || 'N/A'}
               </p>
-              <button class="explain-btn" onclick="explainPrediction()">${t('whyPrediction')}</button>
+              <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+                <button class="explain-btn" onclick="explainPrediction()">${t('whyPrediction')}</button>
+                <button class="explain-btn" onclick="saveResult()" style="background: #10b981;">💾 ${t('saveResult') || 'Save Result'}</button>
+                <button class="explain-btn" onclick="downloadPDF()" style="background: #ef4444;">📄 ${t('downloadPDF') || 'Download PDF'}</button>
+              </div>
             </div>
           `;
           
+          // Store result data globally for PDF and save
+          window.lastResult = { ...data, input_data: { ...state } };
           bot(resultHTML, true);
+          
+          // Auto-save to history
+          saveResultToHistory(data);
         } else {
           bot("Error: " + (data.detail || JSON.stringify(data)));
         }
@@ -661,8 +891,270 @@
       }
     }
 
+    // Voice Input/Output
+    let recognition = null;
+    let synthesis = window.speechSynthesis;
+
+    function initVoiceRecognition() {
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
+      }
+    }
+
+    function startVoiceInput(inputElement) {
+      if (!recognition) {
+        initVoiceRecognition();
+        if (!recognition) {
+          alert('Voice recognition not supported in your browser');
+          return;
+        }
+      }
+
+      const voiceBtn = inputElement.nextElementSibling;
+      voiceBtn.classList.add('recording');
+      voiceBtn.innerHTML = '🔴';
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        const number = parseInt(transcript.replace(/\D/g, ''));
+        if (!isNaN(number)) {
+          inputElement.value = number;
+          // Auto-submit
+          setTimeout(() => {
+            const submitBtn = voiceBtn.nextElementSibling;
+            if (submitBtn) submitBtn.click();
+          }, 300);
+        }
+        voiceBtn.classList.remove('recording');
+        voiceBtn.innerHTML = '🎤';
+      };
+
+      recognition.onerror = () => {
+        voiceBtn.classList.remove('recording');
+        voiceBtn.innerHTML = '🎤';
+      };
+
+      recognition.onend = () => {
+        voiceBtn.classList.remove('recording');
+        voiceBtn.innerHTML = '🎤';
+      };
+
+      recognition.start();
+    }
+
+    function speakText(text) {
+      if (synthesis) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
+        synthesis.speak(utterance);
+      }
+    }
+
+    // PDF Generation
+    async function downloadPDF() {
+      if (!window.lastResult) {
+        alert('No result available to download');
+        return;
+      }
+
+      try {
+        const resp = await fetch('/generate-pdf', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(window.lastResult)
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+          // Decode base64 and download
+          const link = document.createElement('a');
+          link.href = 'data:application/pdf;base64,' + data.pdf_base64;
+          link.download = data.filename;
+          link.click();
+          bot('PDF report downloaded successfully! 📄', false);
+        } else {
+          bot('Error generating PDF: ' + (data.detail || 'Unknown error'), false);
+        }
+      } catch (err) {
+        bot('Error: ' + err.message, false);
+      }
+    }
+
+    // Save Result
+    async function saveResult() {
+      if (!window.lastResult) {
+        alert('No result to save');
+        return;
+      }
+
+      try {
+        const resp = await fetch('/save-result', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(window.lastResult)
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+          bot('✅ Result saved to history!', false);
+        } else {
+          bot('Error saving: ' + (data.detail || 'Unknown error'), false);
+        }
+      } catch (err) {
+        bot('Error: ' + err.message, false);
+      }
+    }
+
+    async function saveResultToHistory(result) {
+      try {
+        await fetch('/save-result', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ ...result, input_data: { ...state } })
+        });
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      }
+    }
+
+    // Profile Management
+    let currentProfile = null;
+
+    function showProfile() {
+      const modal = document.getElementById('profileModal') || createModal('profileModal', 'User Profile');
+      modal.style.display = 'flex';
+      loadProfile();
+    }
+
+    function createModal(id, title) {
+      const modal = document.createElement('div');
+      modal.id = id;
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>${title}</h2>
+            <button class="close-btn" onclick="document.getElementById('${id}').style.display='none'">&times;</button>
+          </div>
+          <div id="${id}Content"></div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      return modal;
+    }
+
+    async function loadProfile() {
+      const content = document.getElementById('profileModalContent');
+      const profileId = localStorage.getItem('profileId') || 'default';
+      
+      try {
+        const resp = await fetch(`/profile/${profileId}`);
+        const data = await resp.json();
+        if (resp.ok) {
+          currentProfile = data.profile;
+          content.innerHTML = `
+            <form onsubmit="saveProfile(event)">
+              <input type="text" name="name" placeholder="Name" value="${currentProfile.name || ''}" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd;">
+              <input type="email" name="email" placeholder="Email" value="${currentProfile.email || ''}" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd;">
+              <input type="tel" name="phone" placeholder="Phone" value="${currentProfile.phone || ''}" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd;">
+              <button type="submit" class="submit-btn" style="width: 100%; margin-top: 10px;">Save Profile</button>
+            </form>
+          `;
+        } else {
+          content.innerHTML = `
+            <form onsubmit="saveProfile(event)">
+              <input type="text" name="name" placeholder="Name" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd;">
+              <input type="email" name="email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd;">
+              <input type="tel" name="phone" placeholder="Phone" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd;">
+              <button type="submit" class="submit-btn" style="width: 100%; margin-top: 10px;">Create Profile</button>
+            </form>
+          `;
+        }
+      } catch (err) {
+        content.innerHTML = `<p>Error loading profile: ${err.message}</p>`;
+      }
+    }
+
+    async function saveProfile(event) {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const profileData = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        phone: formData.get('phone')
+      };
+
+      try {
+        const resp = await fetch('/profile', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(profileData)
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+          localStorage.setItem('profileId', data.profile_id);
+          currentProfile = data.profile;
+          bot('✅ Profile saved successfully!', false);
+          document.getElementById('profileModal').style.display = 'none';
+        } else {
+          bot('Error saving profile: ' + (data.detail || 'Unknown error'), false);
+        }
+      } catch (err) {
+        bot('Error: ' + err.message, false);
+      }
+    }
+
+    // History View
+    async function showHistory() {
+      const modal = document.getElementById('historyModal') || createModal('historyModal', 'Assessment History');
+      modal.style.display = 'flex';
+      loadHistory();
+    }
+
+    async function loadHistory() {
+      const content = document.getElementById('historyModalContent');
+      content.innerHTML = '<p>Loading history...</p>';
+
+      try {
+        const resp = await fetch('/history?limit=20');
+        const data = await resp.json();
+        
+        if (data.history && data.history.length > 0) {
+          let html = '<div style="max-height: 400px; overflow-y: auto;">';
+          data.history.forEach(item => {
+            const date = new Date(item.timestamp).toLocaleDateString();
+            const risk = item.risk_bucket || 'Unknown';
+            html += `
+              <div style="padding: 15px; margin: 10px 0; background: #f8f9fa; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <strong>${date}</strong>
+                  <span class="risk-badge risk-${risk.toLowerCase()}" style="background: ${item.risk_color || '#6b7280'};">${risk}</span>
+                </div>
+                <p style="margin-top: 5px; color: #6b7280;">Probability: ${item.probability_percent || 0}%</p>
+              </div>
+            `;
+          });
+          html += '</div>';
+          content.innerHTML = html;
+        } else {
+          content.innerHTML = '<p>No history found. Complete an assessment to see your history here.</p>';
+        }
+      } catch (err) {
+        content.innerHTML = `<p>Error loading history: ${err.message}</p>`;
+      }
+    }
+
+    // Initialize voice recognition
+    initVoiceRecognition();
+
     // Start conversation
     bot(t('hello'));
+    // Speak welcome message
+    setTimeout(() => speakText(t('hello')), 500);
     askNext();
   </script>
 </body>
