@@ -45,20 +45,29 @@
       position: absolute;
       top: 20px;
       right: 20px;
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.95);
       border: 2px solid white;
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
+      color: #667eea;
+      padding: 10px 18px;
+      border-radius: 25px;
       cursor: pointer;
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 700;
+      font-size: 15px;
       transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10;
     }
 
     .lang-toggle:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: white;
       transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .lang-toggle option {
+      color: #667eea;
+      background: white;
+      padding: 10px;
     }
 
     .header h1 {
@@ -208,8 +217,10 @@
 
     .input-group {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       margin-top: 15px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     .number-input {
@@ -227,22 +238,26 @@
     }
 
     .submit-btn {
-      padding: 12px 24px;
+      padding: 14px 32px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
       border-radius: 25px;
       cursor: pointer;
-      font-weight: 600;
-      transition: transform 0.2s;
+      font-weight: 700;
+      font-size: 16px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      min-width: 100px;
     }
 
     .submit-btn:hover {
-      transform: scale(1.05);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
     }
 
     .submit-btn:active {
-      transform: scale(0.95);
+      transform: translateY(0);
     }
 
     .loading {
@@ -261,18 +276,22 @@
 
     .explain-btn {
       margin-top: 15px;
-      padding: 10px 20px;
-      background: #6b7280;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
       color: white;
       border: none;
-      border-radius: 20px;
+      border-radius: 25px;
       cursor: pointer;
-      font-size: 13px;
-      transition: background 0.3s;
+      font-size: 15px;
+      font-weight: 700;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+      min-width: 140px;
     }
 
     .explain-btn:hover {
-      background: #4b5563;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(107, 114, 128, 0.5);
     }
 
     .progress-indicator {
@@ -283,24 +302,32 @@
     }
 
     .voice-btn {
-      padding: 8px 16px;
-      background: #667eea;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      border-radius: 20px;
+      border-radius: 25px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 18px;
+      font-weight: 600;
       margin-left: 10px;
       transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      min-width: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .voice-btn:hover {
-      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
     }
 
     .voice-btn.recording {
-      background: #ef4444;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
       animation: pulse 1s infinite;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
     }
 
     @keyframes pulse {
@@ -317,19 +344,23 @@
     }
 
     .header-btn {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.95);
       border: 2px solid white;
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
+      color: #667eea;
+      padding: 10px 18px;
+      border-radius: 25px;
       cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
       transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      white-space: nowrap;
     }
 
     .header-btn:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: white;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
     }
 
     .modal {
@@ -378,7 +409,7 @@
         <button class="header-btn" onclick="showProfile()">👤 Profile</button>
         <button class="header-btn" onclick="showHistory()">📋 History</button>
       </div>
-      <select class="lang-toggle" id="langToggle" style="position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 14px;">
+      <select class="lang-toggle" id="langToggle">
         <option value="en">English</option>
         <option value="hi">हिंदी (Hindi)</option>
         <option value="ta">தமிழ் (Tamil)</option>
@@ -808,18 +839,34 @@
     async function sendToBackend() {
       try {
         const payload = { ...state };
+        
+        // Validate all required fields are filled
+        const requiredFields = ['Age', 'Num_of_sexual_partners', 'First_sex_age', 'Num_of_pregnancies'];
+        const missingFields = requiredFields.filter(field => state[field] === null || state[field] === undefined);
+        
+        if (missingFields.length > 0) {
+          bot(`Error: Please fill all required fields. Missing: ${missingFields.join(', ')}`, false);
+          qArea.innerHTML = '';
+          return;
+        }
+        
         const resp = await fetch('/predict', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(payload)
         });
 
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ detail: 'Unknown error occurred' }));
+          throw new Error(errorData.detail || `HTTP ${resp.status}: ${resp.statusText}`);
+        }
+
         const data = await resp.json();
         qArea.innerHTML = '';
 
-        if (resp.ok) {
-          const riskClass = data.risk_bucket.toLowerCase();
-          const probPercent = data.probability_percent || (data.probability * 100).toFixed(1);
+        if (data && typeof data === 'object' && data.risk_bucket) {
+          const riskClass = (data.risk_bucket || '').toLowerCase();
+          const probPercent = data.probability_percent || (data.probability ? (data.probability * 100).toFixed(1) : '0');
           
           const riskText = riskClass === 'low' ? t('riskLow') : riskClass === 'medium' ? t('riskMedium') : t('riskHigh');
           const adviceText = riskClass === 'low' ? t('adviceLow') : riskClass === 'medium' ? t('adviceMedium') : t('adviceHigh');
@@ -847,10 +894,10 @@
               <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
                 ${t('label')}: ${data.label || 'N/A'} | ${t('confidence')}: ${data.confidence || 'N/A'}
               </p>
-              <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
-                <button class="explain-btn" onclick="explainPrediction()">${t('whyPrediction')}</button>
-                <button class="explain-btn" onclick="saveResult()" style="background: #10b981;">💾 ${t('saveResult') || 'Save Result'}</button>
-                <button class="explain-btn" onclick="downloadPDF()" style="background: #ef4444;">📄 ${t('downloadPDF') || 'Download PDF'}</button>
+              <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+                <button class="explain-btn" onclick="explainPrediction()" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); font-size: 15px; padding: 14px 28px;">${t('whyPrediction')}</button>
+                <button class="explain-btn" onclick="saveResult()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-size: 15px; padding: 14px 28px;">💾 ${t('saveResult') || 'Save Result'}</button>
+                <button class="explain-btn" onclick="downloadPDF()" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); font-size: 15px; padding: 14px 28px;">📄 ${t('downloadPDF') || 'Download PDF'}</button>
               </div>
             </div>
           `;
@@ -862,11 +909,13 @@
           // Auto-save to history
           saveResultToHistory(data);
         } else {
-          bot("Error: " + (data.detail || JSON.stringify(data)));
+          throw new Error('Invalid response format from server. Expected risk_bucket field.');
         }
       } catch (err) {
         qArea.innerHTML = '';
-        bot(t('errorNetwork', err.message));
+        console.error('Prediction error:', err);
+        const errorMsg = err.message || 'An error occurred while processing your request. Please try again.';
+        bot(`❌ Error: ${errorMsg}`, false);
       }
     }
 
