@@ -992,6 +992,21 @@ async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
         story.append(Paragraph(f"<i>Generated on: {date_str}</i>", styles['Normal']))
         story.append(Spacer(1, 0.3*inch))
         
+        # User Profile Information (if available)
+        profile = result_data.get("profile", {})
+        if profile and (profile.get("name") or profile.get("email")):
+            story.append(Paragraph("<b>Patient Information:</b>", styles['Heading3']))
+            profile_info = []
+            if profile.get("name"):
+                profile_info.append(f"Name: {profile.get('name')}")
+            if profile.get("email"):
+                profile_info.append(f"Email: {profile.get('email')}")
+            if profile.get("phone"):
+                profile_info.append(f"Phone: {profile.get('phone')}")
+            if profile_info:
+                story.append(Paragraph("<br/>".join(profile_info), styles['Normal']))
+                story.append(Spacer(1, 0.2*inch))
+        
         # Risk Level
         risk_level = result_data.get("risk_bucket", "Unknown")
         risk_color = result_data.get("risk_color", "#6b7280")
@@ -1008,10 +1023,23 @@ async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
         story.append(Paragraph(f"Probability: {prob_percent}%", styles['Normal']))
         story.append(Spacer(1, 0.2*inch))
         
-        # Advice
-        advice = result_data.get("advice", "")
-        story.append(Paragraph("<b>Recommendation:</b>", styles['Heading3']))
-        story.append(Paragraph(advice, styles['Normal']))
+        # Detailed Explanation
+        risk_level = result_data.get("risk_bucket", "Unknown").lower()
+        if risk_level == "low":
+            what_means = "Your data shows very few or weak risk indicators commonly linked to cervical cancer."
+            what_to_do = "• Continue routine cervical screening\n• Maintain preventive practices and regular health check-ups"
+        elif risk_level == "medium":
+            what_means = "Some moderate risk factors are present, but the overall pattern does not strongly indicate high risk."
+            what_to_do = "• Follow-up screening is recommended\n• Consult a healthcare professional for further evaluation"
+        else:
+            what_means = "The model detected strong patterns associated with cervical cancer risk."
+            what_to_do = "• Immediate medical consultation is strongly advised\n• Diagnostic tests such as HPV testing, Pap smear, or biopsy may be required"
+        
+        story.append(Paragraph("<b>What this means:</b>", styles['Heading3']))
+        story.append(Paragraph(what_means, styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+        story.append(Paragraph("<b>What to do:</b>", styles['Heading3']))
+        story.append(Paragraph(what_to_do.replace('\n', '<br/>'), styles['Normal']))
         story.append(Spacer(1, 0.3*inch))
         
         # User Input Data
@@ -1038,13 +1066,20 @@ async def generate_pdf(result_data: Dict[str, Any]) -> JSONResponse:
         
         # Disclaimer
         disclaimer = (
-            "<b>Disclaimer:</b><br/>"
-            "This assessment is for informational purposes only and should not replace "
-            "professional medical advice, diagnosis, or treatment. Always seek the advice "
-            "of your physician or other qualified health provider with any questions you "
-            "may have regarding a medical condition."
+            "<b>⚠ Important Disclaimer</b><br/>"
+            "This prediction is not a medical diagnosis. It is a risk-assessment and early-warning tool "
+            "designed to support timely screening and clinical decision-making. Final diagnosis and treatment "
+            "decisions must always be made by a qualified healthcare professional."
         )
-        story.append(Paragraph(disclaimer, styles['Normal']))
+        disclaimer_style = ParagraphStyle(
+            'DisclaimerStyle',
+            parent=styles['Normal'],
+            backColor=colors.HexColor('#fef3c7'),
+            borderPadding=10,
+            leftIndent=10,
+            rightIndent=10
+        )
+        story.append(Paragraph(disclaimer, disclaimer_style))
         
         # Build PDF
         doc.build(story)
