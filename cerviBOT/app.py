@@ -1170,11 +1170,22 @@ def get_reminders() -> Dict[str, Any]:
         return {"reminders": [], "count": 0, "error": str(e)}
 
 
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two coordinates using Haversine formula (returns km)."""
+    from math import radians, cos, sin, asin, sqrt
+    R = 6371  # Earth radius in kilometers
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    return R * c
+
 @app.get("/doctors")
 def find_doctors(lat: Optional[float] = None, lon: Optional[float] = None, city: Optional[str] = None) -> Dict[str, Any]:
-    """Find doctors/hospitals (mock data for demo, integrate with real API in production)."""
-    # In production, integrate with Google Places API or similar
-    # For now, return sample data
+    """Find doctors/hospitals with GPS-based location and distance calculation."""
+    # Sample doctors database with GPS coordinates
+    # In production, integrate with Google Places API, Healthgrades API, or similar
     sample_doctors = [
         {
             "id": 1,
@@ -1184,7 +1195,10 @@ def find_doctors(lat: Optional[float] = None, lon: Optional[float] = None, city:
             "address": "123 Medical Center Dr, City, State 12345",
             "phone": "(555) 123-4567",
             "rating": 4.8,
-            "distance": "2.5 miles" if lat and lon else None
+            "lat": 28.7041,  # Example coordinates (Delhi)
+            "lon": 77.1025,
+            "distance_km": None,
+            "distance_miles": None
         },
         {
             "id": 2,
@@ -1194,7 +1208,10 @@ def find_doctors(lat: Optional[float] = None, lon: Optional[float] = None, city:
             "address": "456 Health Blvd, City, State 12345",
             "phone": "(555) 234-5678",
             "rating": 4.9,
-            "distance": "5.1 miles" if lat and lon else None
+            "lat": 28.6139,
+            "lon": 77.2090,
+            "distance_km": None,
+            "distance_miles": None
         },
         {
             "id": 3,
@@ -1204,68 +1221,158 @@ def find_doctors(lat: Optional[float] = None, lon: Optional[float] = None, city:
             "address": "789 Wellness Ave, City, State 12345",
             "phone": "(555) 345-6789",
             "rating": 4.7,
-            "distance": "1.8 miles" if lat and lon else None
+            "lat": 28.5355,
+            "lon": 77.3910,
+            "distance_km": None,
+            "distance_miles": None
+        },
+        {
+            "id": 4,
+            "name": "Dr. Anjali Sharma",
+            "specialty": "Gynecologist",
+            "hospital": "Women's Health Center",
+            "address": "321 Care Street, City, State 12345",
+            "phone": "(555) 456-7890",
+            "rating": 4.9,
+            "lat": 28.7041,
+            "lon": 77.1025,
+            "distance_km": None,
+            "distance_miles": None
+        },
+        {
+            "id": 5,
+            "name": "Dr. Kavita Reddy",
+            "specialty": "Gynecologic Oncologist",
+            "hospital": "Advanced Medical Institute",
+            "address": "654 Treatment Way, City, State 12345",
+            "phone": "(555) 567-8901",
+            "rating": 4.8,
+            "lat": 28.6139,
+            "lon": 77.2090,
+            "distance_km": None,
+            "distance_miles": None
         }
     ]
+    
+    # Calculate distances if GPS coordinates provided
+    if lat is not None and lon is not None:
+        for doctor in sample_doctors:
+            dist_km = calculate_distance(lat, lon, doctor["lat"], doctor["lon"])
+            doctor["distance_km"] = round(dist_km, 2)
+            doctor["distance_miles"] = round(dist_km * 0.621371, 2)
+        
+        # Sort by distance (nearest first)
+        sample_doctors.sort(key=lambda x: x["distance_km"])
+    else:
+        # Sort by rating if no GPS
+        sample_doctors.sort(key=lambda x: x["rating"], reverse=True)
     
     # Filter by city if provided
     if city:
         sample_doctors = [d for d in sample_doctors if city.lower() in d["address"].lower()]
     
-    return {"doctors": sample_doctors, "count": len(sample_doctors)}
+    # Return top 10 nearest doctors
+    return {
+        "doctors": sample_doctors[:10],
+        "count": len(sample_doctors[:10]),
+        "user_location": {"lat": lat, "lon": lon} if lat and lon else None
+    }
 
 
 @app.get("/educational-content")
 def get_educational_content(category: Optional[str] = None) -> Dict[str, Any]:
-    """Get educational content about cervical health."""
+    """Get AI-generated educational content about cervical health."""
+    import math
+    
+    # AI-generated comprehensive educational content
     content = {
         "prevention": {
-            "title": "Prevention Tips",
+            "title": "Prevention & Early Detection",
             "articles": [
                 {
-                    "title": "HPV Vaccination",
-                    "content": "HPV vaccination is recommended for adolescents and young adults to prevent HPV infection, which is the leading cause of cervical cancer. The vaccine is most effective when given before exposure to HPV.",
+                    "title": "HPV Vaccination: Your First Line of Defense",
+                    "content": "Human Papillomavirus (HPV) vaccination is the most effective way to prevent cervical cancer. The vaccine protects against the high-risk HPV types (16 and 18) that cause 70% of cervical cancers. It's recommended for girls and boys aged 9-14, and can be given up to age 26. The vaccine is most effective when administered before sexual activity begins, as it prevents HPV infection before exposure occurs. Multiple doses are required for full protection, and the vaccine has been proven safe and effective in millions of people worldwide.",
                     "link": "https://www.cdc.gov/hpv/parents/vaccine.html"
                 },
                 {
-                    "title": "Regular Screening",
-                    "content": "Regular cervical cancer screening (Pap tests and HPV tests) can detect precancerous changes early, when they're easier to treat. Follow your healthcare provider's recommendations for screening frequency.",
+                    "title": "Regular Screening: Early Detection Saves Lives",
+                    "content": "Regular cervical cancer screening is crucial for early detection and successful treatment. Two main tests are used: the Pap test (cytology) which detects abnormal cells, and the HPV test which detects the virus itself. Current guidelines recommend starting screening at age 21, with Pap tests every 3 years, or HPV tests every 5 years starting at age 30. Women over 65 with adequate prior screening may stop. Early detection allows for treatment of precancerous changes before they become invasive cancer, significantly improving outcomes and survival rates.",
                     "link": "https://www.cancer.org/cancer/cervical-cancer/prevention-early-detection.html"
+                },
+                {
+                    "title": "Lifestyle Modifications for Prevention",
+                    "content": "Several lifestyle factors can reduce your risk of cervical cancer. Quitting smoking is essential, as tobacco use doubles the risk. Maintaining a healthy immune system through proper nutrition, regular exercise, and managing stress helps your body fight HPV infections. Using condoms consistently can reduce HPV transmission, though they don't provide complete protection. Limiting sexual partners and avoiding early sexual activity also reduces exposure risk. A diet rich in fruits and vegetables, particularly those high in antioxidants, may provide additional protective benefits.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/causes-risks-prevention/prevention.html"
                 }
             ]
         },
         "symptoms": {
-            "title": "Symptoms to Watch For",
+            "title": "Recognizing Symptoms & Warning Signs",
             "articles": [
                 {
-                    "title": "Early Stage Symptoms",
-                    "content": "Early cervical cancer may not cause symptoms. As it progresses, symptoms may include abnormal vaginal bleeding, unusual discharge, pain during intercourse, and pelvic pain.",
+                    "title": "Early Stage: Often Silent",
+                    "content": "Early-stage cervical cancer typically produces no symptoms, which is why regular screening is so important. The disease often develops slowly over many years, starting as precancerous changes that can be detected and treated before becoming invasive. This silent progression makes routine screening essential, as waiting for symptoms to appear means the cancer may have already advanced to a more serious stage.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/detection-diagnosis-staging/signs-symptoms.html"
+                },
+                {
+                    "title": "Advanced Stage Symptoms",
+                    "content": "As cervical cancer progresses, symptoms may include abnormal vaginal bleeding (between periods, after intercourse, or after menopause), unusual vaginal discharge (watery, bloody, or foul-smelling), pelvic pain or pain during intercourse, and unexplained weight loss or fatigue. These symptoms can also indicate other conditions, so it's important to consult a healthcare provider for proper evaluation. Any persistent or unusual symptoms should be investigated promptly.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/detection-diagnosis-staging/signs-symptoms.html"
+                },
+                {
+                    "title": "When to Seek Immediate Medical Attention",
+                    "content": "Seek immediate medical care if you experience heavy vaginal bleeding, severe pelvic pain, or symptoms that significantly impact your daily life. While these may not always indicate cervical cancer, they require prompt medical evaluation. Early intervention is key to successful treatment, and your healthcare provider can determine the cause and appropriate next steps.",
                     "link": "https://www.cancer.org/cancer/cervical-cancer/detection-diagnosis-staging/signs-symptoms.html"
                 }
             ]
         },
         "treatment": {
-            "title": "Treatment Options",
+            "title": "Treatment Options & Recovery",
             "articles": [
                 {
-                    "title": "Treatment Overview",
-                    "content": "Treatment for cervical cancer depends on the stage, type, and your overall health. Options may include surgery, radiation therapy, chemotherapy, or a combination of these.",
+                    "title": "Treatment Approaches by Stage",
+                    "content": "Treatment for cervical cancer depends on the stage, size, and location of the tumor, as well as your overall health and desire to preserve fertility. Early-stage cancers (Stage 0-1A) may be treated with cone biopsy or simple hysterectomy, preserving fertility in some cases. Stage 1B-2A cancers typically require radical hysterectomy or radiation with chemotherapy. Advanced stages (2B-4) usually require radiation therapy combined with chemotherapy. Your medical team will develop a personalized treatment plan based on your specific situation.",
                     "link": "https://www.cancer.org/cancer/cervical-cancer/treating.html"
+                },
+                {
+                    "title": "Surgical Options",
+                    "content": "Surgery is often the primary treatment for early-stage cervical cancer. Options include cone biopsy (removing a cone-shaped piece of tissue) for very early cancers, simple hysterectomy (removing uterus and cervix), or radical hysterectomy (removing uterus, cervix, and surrounding tissue). In some cases, fertility-sparing procedures like trachelectomy (removing only the cervix) may be possible. Minimally invasive techniques like laparoscopy may reduce recovery time. Discuss all options with your surgeon to understand benefits and risks.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/treating/treating-by-stage.html"
+                },
+                {
+                    "title": "Radiation & Chemotherapy",
+                    "content": "Radiation therapy uses high-energy rays to kill cancer cells and is often combined with chemotherapy (chemoradiation) for better effectiveness. External beam radiation targets the tumor from outside the body, while brachytherapy places radioactive sources directly in or near the tumor. Chemotherapy drugs travel through the bloodstream to kill cancer cells. Side effects may include fatigue, skin changes, nausea, and changes in bowel or bladder function. Modern techniques minimize damage to healthy tissue. Supportive care helps manage side effects throughout treatment.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/treating/radiation-therapy.html"
+                },
+                {
+                    "title": "Recovery & Follow-up Care",
+                    "content": "Recovery time varies based on treatment type. Surgery recovery typically takes 4-8 weeks, while radiation/chemotherapy may take several months. Follow-up care is crucial and includes regular pelvic exams, imaging tests, and monitoring for recurrence. Most recurrences happen within the first 2 years, so frequent monitoring is important initially. Long-term follow-up continues for at least 5 years. Emotional support, physical therapy, and lifestyle modifications can aid recovery. Many women return to normal activities and maintain good quality of life after treatment.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/after-treatment/follow-up.html"
                 }
             ]
         },
         "general": {
-            "title": "General Information",
+            "title": "Understanding Cervical Cancer",
             "articles": [
                 {
                     "title": "What is Cervical Cancer?",
-                    "content": "Cervical cancer is a type of cancer that occurs in the cells of the cervix, the lower part of the uterus. Most cases are caused by persistent infection with certain types of human papillomavirus (HPV).",
+                    "content": "Cervical cancer develops in the cervix, the narrow passage connecting the uterus to the vagina. It's the fourth most common cancer in women globally but highly preventable and treatable when detected early. Most cases (over 90%) are caused by persistent infection with high-risk types of Human Papillomavirus (HPV), particularly types 16 and 18. The cancer typically develops slowly over 10-20 years, progressing from precancerous changes (dysplasia) to invasive cancer. This slow progression provides multiple opportunities for early detection and prevention through screening and vaccination.",
                     "link": "https://www.cancer.org/cancer/cervical-cancer/about/what-is-cervical-cancer.html"
                 },
                 {
-                    "title": "Risk Factors",
-                    "content": "Risk factors include HPV infection, smoking, weakened immune system, long-term use of birth control pills, having multiple sexual partners, and early age at first sexual intercourse.",
+                    "title": "Risk Factors & Causes",
+                    "content": "Primary risk factors include HPV infection (especially high-risk types 16, 18, 31, 33, 45), smoking (doubles the risk), weakened immune system (HIV, immunosuppressive drugs), long-term use of oral contraceptives (5+ years), having multiple sexual partners or early sexual activity, giving birth to many children, and a family history of cervical cancer. Socioeconomic factors like limited access to healthcare and screening also increase risk. Understanding these factors helps in prevention and early detection strategies.",
                     "link": "https://www.cancer.org/cancer/cervical-cancer/causes-risks-prevention/risk-factors.html"
+                },
+                {
+                    "title": "Statistics & Global Impact",
+                    "content": "Cervical cancer affects approximately 570,000 women annually worldwide, with 311,000 deaths. It's most common in developing countries where screening and vaccination programs are limited. In developed countries, widespread screening has reduced incidence by 70% over the past 50 years. The 5-year survival rate is over 90% for early-stage cancers but drops to 15% for advanced stages, highlighting the critical importance of early detection. Vaccination and screening programs can prevent most cases, making cervical cancer one of the most preventable cancers.",
+                    "link": "https://www.cancer.org/cancer/cervical-cancer/about/key-statistics.html"
+                },
+                {
+                    "title": "HPV: The Primary Cause",
+                    "content": "Human Papillomavirus (HPV) is a common sexually transmitted infection. While most HPV infections clear on their own within 2 years, persistent infection with high-risk types can lead to cervical cancer. There are over 100 HPV types, but about 15 are considered high-risk. Types 16 and 18 cause 70% of cervical cancers. HPV is transmitted through skin-to-skin contact, primarily during sexual activity. Most sexually active people will have HPV at some point, but only a small percentage develop cancer. Regular screening detects HPV and precancerous changes early, allowing for treatment before cancer develops.",
+                    "link": "https://www.cdc.gov/hpv/index.html"
                 }
             ]
         }

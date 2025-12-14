@@ -111,33 +111,30 @@
       animation: slideUpBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
       transform-style: preserve-3d;
       perspective: 1000px;
+      will-change: transform;
     }
 
     @keyframes slideUpBounce {
       0% {
         opacity: 0;
-        transform: translateY(30px) rotateX(-10deg) scale(0.9);
-      }
-      50% {
-        transform: translateY(-5px) rotateX(2deg) scale(1.02);
+        transform: translateY(30px) scale(0.95);
       }
       100% {
         opacity: 1;
-        transform: translateY(0) rotateX(0) scale(1);
+        transform: translateY(0) scale(1);
       }
     }
 
-    @keyframes bubbleFloat {
-      0%, 100% {
-        transform: translateY(0) rotateZ(0deg);
-      }
-      50% {
-        transform: translateY(-8px) rotateZ(2deg);
-      }
-    }
-
+    /* Remove wavy hover effect that causes disappearing */
     .message:hover {
-      animation: bubbleFloat 2s ease-in-out infinite;
+      transform: none;
+      animation: none;
+    }
+    
+    /* Only apply subtle hover to bot messages, not questions */
+    .bot-message:hover .bot-text {
+      transform: translateY(-2px);
+      transition: transform 0.2s ease;
     }
 
     .bot-message {
@@ -1485,6 +1482,9 @@
       headerTitle.textContent = t('title');
       headerSubtitle.textContent = t('subtitle');
       
+      // Update voice recognition language
+      updateRecognitionLanguage();
+      
       // Clear and restart conversation
       conversation.innerHTML = '';
       qArea.innerHTML = '';
@@ -1933,7 +1933,14 @@
         recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.continuous = false;
         recognition.interimResults = false;
-        recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
+        recognition.lang = getSpeechLang(currentLang);
+        recognition.maxAlternatives = 1;
+      }
+    }
+    
+    function updateRecognitionLanguage() {
+      if (recognition) {
+        recognition.lang = getSpeechLang(currentLang);
       }
     }
 
@@ -1941,41 +1948,89 @@
       if (!recognition) {
         initVoiceRecognition();
         if (!recognition) {
-          alert('Voice recognition not supported in your browser');
+          alert('Voice recognition not supported in your browser. Please use Chrome or Edge.');
           return;
         }
       }
 
+      // Update language before starting
+      updateRecognitionLanguage();
+
       const voiceBtn = inputElement.nextElementSibling;
+      if (!voiceBtn || !voiceBtn.classList.contains('voice-btn')) {
+        console.error('Voice button not found');
+        return;
+      }
+
+      // Stop any ongoing recognition
+      try {
+        recognition.stop();
+      } catch (e) {
+        // Ignore if not running
+      }
+
       voiceBtn.classList.add('recording');
       voiceBtn.innerHTML = '🔴';
+      voiceBtn.disabled = true;
 
       recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        const number = parseInt(transcript.replace(/\D/g, ''));
-        if (!isNaN(number)) {
-          inputElement.value = number;
-          // Auto-submit
-          setTimeout(() => {
-            const submitBtn = voiceBtn.nextElementSibling;
-            if (submitBtn) submitBtn.click();
-          }, 300);
+        if (event.results.length > 0) {
+          const transcript = event.results[0][0].transcript.trim();
+          console.log('Voice input:', transcript);
+          
+          // Try to extract number
+          const number = parseInt(transcript.replace(/\D/g, ''));
+          if (!isNaN(number) && number >= 0) {
+            inputElement.value = number;
+            // Auto-submit after a short delay
+            setTimeout(() => {
+              const submitBtn = voiceBtn.nextElementSibling;
+              if (submitBtn && submitBtn.classList.contains('submit-btn')) {
+                submitBtn.click();
+              }
+            }, 500);
+          } else {
+            // If not a number, try to set the text directly
+            inputElement.value = transcript;
+          }
         }
         voiceBtn.classList.remove('recording');
         voiceBtn.innerHTML = '🎤';
+        voiceBtn.disabled = false;
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event) => {
+        console.error('Voice recognition error:', event.error);
         voiceBtn.classList.remove('recording');
         voiceBtn.innerHTML = '🎤';
+        voiceBtn.disabled = false;
+        
+        let errorMsg = 'Voice recognition error. ';
+        if (event.error === 'no-speech') {
+          errorMsg += 'No speech detected. Please try again.';
+        } else if (event.error === 'not-allowed') {
+          errorMsg += 'Microphone permission denied. Please allow microphone access.';
+        } else {
+          errorMsg += 'Please try again.';
+        }
+        alert(errorMsg);
       };
 
       recognition.onend = () => {
         voiceBtn.classList.remove('recording');
         voiceBtn.innerHTML = '🎤';
+        voiceBtn.disabled = false;
       };
 
-      recognition.start();
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('Failed to start recognition:', e);
+        voiceBtn.classList.remove('recording');
+        voiceBtn.innerHTML = '🎤';
+        voiceBtn.disabled = false;
+        alert('Failed to start voice recognition. Please try again.');
+      }
     }
 
     function speakText(text) {
@@ -2213,11 +2268,174 @@
       }
     }
 
+    // Educational Content
+    async function showEducationalContent() {
+      const modal = document.getElementById('eduModal') || createModal('eduModal', 'Educational Content');
+      modal.style.display = 'flex';
+      loadEducationalContent();
+    }
+
+    async function loadEducationalContent() {
+      const content = document.getElementById('eduModalContent') || document.querySelector('#eduModal .modal-content');
+      if (!content) return;
+      
+      content.innerHTML = '<p>Loading educational content...</p>';
+
+      try {
+        const resp = await fetch('/educational-content');
+        const data = await resp.json();
+        
+        if (data.all_content) {
+          let html = '<div style="max-height: 500px; overflow-y: auto;">';
+          Object.keys(data.all_content).forEach(category => {
+            const cat = data.all_content[category];
+            html += `<h3 style="color: #667eea; margin-top: 20px; margin-bottom: 10px;">${cat.title}</h3>`;
+            cat.articles.forEach(article => {
+              html += `
+                <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 4px solid #667eea;">
+                  <h4 style="color: #1f2937; margin-bottom: 8px;">${article.title}</h4>
+                  <p style="color: #4b5563; line-height: 1.6; margin-bottom: 8px;">${article.content}</p>
+                  ${article.link ? `<a href="${article.link}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600;">Learn More →</a>` : ''}
+                </div>
+              `;
+            });
+          });
+          html += '</div>';
+          content.innerHTML = html;
+        }
+      } catch (err) {
+        content.innerHTML = `<p style="color: red;">Error loading content: ${err.message}</p>`;
+      }
+    }
+
+    // Find Doctors with GPS
+    async function findDoctors() {
+      const modal = document.getElementById('doctorsModal') || createModal('doctorsModal', 'Find Nearby Doctors');
+      modal.style.display = 'flex';
+      
+      // Request location
+      let userLat = null, userLon = null;
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            userLat = position.coords.latitude;
+            userLon = position.coords.longitude;
+            await loadDoctors(userLat, userLon);
+          },
+          async (error) => {
+            console.error('Geolocation error:', error);
+            await loadDoctors(null, null);
+          }
+        );
+      } else {
+        await loadDoctors(null, null);
+      }
+    }
+
+    async function loadDoctors(lat, lon) {
+      const content = document.getElementById('doctorsModalContent') || document.querySelector('#doctorsModal .modal-content');
+      if (!content) return;
+      
+      content.innerHTML = '<p>Finding doctors...</p>';
+
+      try {
+        const url = `/doctors${lat && lon ? `?lat=${lat}&lon=${lon}` : ''}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        
+        if (data.doctors && data.doctors.length > 0) {
+          let html = '<div style="max-height: 500px; overflow-y: auto;">';
+          
+          if (lat && lon) {
+            html += `<p style="color: #667eea; margin-bottom: 15px;">📍 Showing ${data.count} nearest doctors based on your location</p>`;
+            html += `<div id="map" style="width: 100%; height: 300px; margin-bottom: 20px; border-radius: 10px; overflow: hidden;"></div>`;
+          } else {
+            html += `<p style="color: #6b7280; margin-bottom: 15px;">Enable location services to see nearest doctors</p>`;
+          }
+          
+          data.doctors.forEach(doctor => {
+            html += `
+              <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 4px solid #667eea;">
+                <h4 style="color: #1f2937; margin-bottom: 5px;">${doctor.name}</h4>
+                <p style="color: #6b7280; margin: 5px 0;"><strong>Specialty:</strong> ${doctor.specialty}</p>
+                <p style="color: #6b7280; margin: 5px 0;"><strong>Hospital:</strong> ${doctor.hospital}</p>
+                <p style="color: #6b7280; margin: 5px 0;"><strong>Address:</strong> ${doctor.address}</p>
+                <p style="color: #6b7280; margin: 5px 0;"><strong>Phone:</strong> ${doctor.phone}</p>
+                <p style="color: #6b7280; margin: 5px 0;"><strong>Rating:</strong> ${'⭐'.repeat(Math.floor(doctor.rating))} ${doctor.rating}/5.0</p>
+                ${doctor.distance_km ? `<p style="color: #667eea; margin: 5px 0; font-weight: 600;">📍 ${doctor.distance_km} km (${doctor.distance_miles} miles) away</p>` : ''}
+                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(doctor.address)}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600; display: inline-block; margin-top: 8px;">View on Map →</a>
+              </div>
+            `;
+          });
+          html += '</div>';
+          content.innerHTML = html;
+          
+          // Load map if location available
+          if (lat && lon && data.doctors.length > 0) {
+            setTimeout(() => loadMap(lat, lon, data.doctors), 100);
+          }
+        } else {
+          content.innerHTML = '<p>No doctors found. Please try again later.</p>';
+        }
+      } catch (err) {
+        content.innerHTML = `<p style="color: red;">Error finding doctors: ${err.message}</p>`;
+      }
+    }
+
+    function loadMap(userLat, userLon, doctors) {
+      const mapDiv = document.getElementById('map');
+      if (!mapDiv) return;
+      
+      // Use OpenStreetMap with Leaflet (free, no API key required)
+      if (typeof L === 'undefined') {
+        // Load Leaflet CSS and JS
+        const leafletCSS = document.createElement('link');
+        leafletCSS.rel = 'stylesheet';
+        leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(leafletCSS);
+        
+        const leafletJS = document.createElement('script');
+        leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        leafletJS.onload = () => initMap(userLat, userLon, doctors);
+        document.body.appendChild(leafletJS);
+      } else {
+        initMap(userLat, userLon, doctors);
+      }
+    }
+
+    function initMap(userLat, userLon, doctors) {
+      const mapDiv = document.getElementById('map');
+      if (!mapDiv || typeof L === 'undefined') return;
+      
+      // Initialize map
+      const map = L.map('map').setView([userLat, userLon], 12);
+      
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      
+      // Add user location marker
+      L.marker([userLat, userLon])
+        .addTo(map)
+        .bindPopup('Your Location')
+        .openPopup();
+      
+      // Add doctor markers
+      doctors.forEach(doctor => {
+        if (doctor.lat && doctor.lon) {
+          L.marker([doctor.lat, doctor.lon])
+            .addTo(map)
+            .bindPopup(`<b>${doctor.name}</b><br>${doctor.hospital}<br>${doctor.distance_km} km away`);
+        }
+      });
+    }
+
     // Initialize voice recognition
     initVoiceRecognition();
 
     // Start conversation
-    bot(t('hello'));
+    bot(t('hello'), false, true);
     // Speak welcome message
     setTimeout(() => speakText(t('hello')), 500);
     askNext();
