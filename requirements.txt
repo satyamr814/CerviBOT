@@ -7,3 +7,4 @@ scikit-learn==1.2.2
 xgboost==1.7.5
 numpy==1.24.3
 python-multipart==0.0.6
+twilio==8.8.0
